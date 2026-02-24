@@ -97,12 +97,17 @@ function MusicPlayer() {
   const loadTrack = (idx, autoplay = false) => {
     setTrackIdx(idx); setProgress(0); setPlaying(false);
     setTimeout(() => {
-      audioRef.current?.load();
-      if (autoplay) { audioRef.current?.play(); setPlaying(true); }
+      const a = audioRef.current; if (!a) return;
+      a.load();
+      if (autoplay) a.play().then(() => setPlaying(true)).catch(err => console.warn("Playback blocked:", err));
     }, 50);
   };
 
-  const toggle  = () => { if (playing) { audioRef.current?.pause(); setPlaying(false); } else { audioRef.current?.play(); setPlaying(true); } };
+  const toggle = () => {
+    const a = audioRef.current; if (!a) return;
+    if (playing) { a.pause(); setPlaying(false); }
+    else { a.play().then(() => setPlaying(true)).catch(err => console.warn("Playback blocked:", err)); }
+  };
   const goNext  = () => loadTrack((trackIdx + 1) % PLAYLIST.length, playing);
   const goPrev  = () => {
     if (progress > 3) { audioRef.current.currentTime = 0; }
