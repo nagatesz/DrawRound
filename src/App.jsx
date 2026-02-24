@@ -126,7 +126,7 @@ function MusicPlayer() {
 
   return (
     <div style={{ position: "fixed", bottom: 20, right: 20, zIndex: 100, userSelect: "none", fontFamily: "'Inter', system-ui, sans-serif" }}>
-      <audio ref={audioRef} src={current.src} />
+      <audio ref={audioRef} preload="none" />
 
       {/* ── COLLAPSED PILL ── */}
       {!expanded && (
