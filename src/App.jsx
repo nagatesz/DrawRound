@@ -6,32 +6,175 @@ const PLAYLIST = [
   { title: "Shot Callin", artist: "NBA YoungBoy", src: "/music/ShotCallin.mp3" },
 ];
 
+const FIRE_PLAYLIST = [
+  { title: "Fire Song 1", artist: "Artist Name", src: "/music/fire1.mp3" },
+  { title: "Fire Song 2", artist: "Artist Name", src: "/music/fire2.mp3" },
+  { title: "Fire Song 3", artist: "Artist Name", src: "/music/fire3.mp3" },
+];
+
+const SECRET_CODE = "6969"; // Temporary code
+
+// ── KEYPAD COMPONENT ──────────────────────────────────────────────────────────
+function Keypad({ onClose, onUnlock }) {
+  const [code, setCode] = useState("");
+  const [error, setError] = useState(false);
+
+  const handleNum = (n) => {
+    if (code.length >= 4) return;
+    const newCode = code + n;
+    setCode(newCode);
+    
+    if (newCode.length === 4) {
+      if (newCode === SECRET_CODE) {
+        onUnlock();
+        setTimeout(onClose, 500);
+      } else {
+        setError(true);
+        setTimeout(() => {
+          setCode("");
+          setError(false);
+        }, 800);
+      }
+    }
+  };
+
+  const handleClear = () => {
+    setCode("");
+    setError(false);
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, animation: "fadeIn 0.2s" }}>
+      <div style={{ background: "rgba(15,23,42,0.98)", border: "1px solid rgba(99,102,241,0.4)", borderRadius: 24, padding: 32, width: 320, boxShadow: "0 8px 48px rgba(99,102,241,0.3)" }}>
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+          <div>
+            <div style={{ color: "#f1f5f9", fontSize: 20, fontWeight: 700, marginBottom: 4 }}>🔥 Fire Playlist</div>
+            <div style={{ color: "#64748b", fontSize: 12 }}>Enter the secret code</div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#64748b", fontSize: 24, cursor: "pointer", lineHeight: 1, transition: "color 0.2s" }}>✕</button>
+        </div>
+
+        {/* Code Display */}
+        <div style={{ background: error ? "rgba(239,68,68,0.15)" : "rgba(99,102,241,0.1)", border: error ? "2px solid #ef4444" : "2px solid rgba(99,102,241,0.3)", borderRadius: 16, padding: "20px 0", marginBottom: 24, textAlign: "center", transition: "all 0.3s" }}>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+            {[0, 1, 2, 3].map(i => (
+              <div key={i} style={{ width: 16, height: 16, borderRadius: "50%", background: code.length > i ? (error ? "#ef4444" : "#818cf8") : "rgba(99,102,241,0.2)", transition: "all 0.3s", boxShadow: code.length > i ? (error ? "0 0 12px #ef4444" : "0 0 12px #818cf8") : "none" }} />
+            ))}
+          </div>
+        </div>
+
+        {/* Keypad Grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 16 }}>
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => (
+            <button key={n} onClick={() => handleNum(String(n))} style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 12, padding: "16px 0", color: "#f1f5f9", fontSize: 20, fontWeight: 700, cursor: "pointer", transition: "all 0.2s" }}>
+              {n}
+            </button>
+          ))}
+          <button onClick={handleClear} style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 12, padding: "16px 0", color: "#ef4444", fontSize: 14, fontWeight: 700, cursor: "pointer", gridColumn: "1", transition: "all 0.2s" }}>
+            CLR
+          </button>
+          <button onClick={() => handleNum("0")} style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 12, padding: "16px 0", color: "#f1f5f9", fontSize: 20, fontWeight: 700, cursor: "pointer", gridColumn: "2", transition: "all 0.2s" }}>
+            0
+          </button>
+        </div>
+
+        {error && (
+          <div style={{ color: "#ef4444", fontSize: 12, textAlign: "center", fontWeight: 600 }}>
+            ❌ Wrong code! Try again.
+          </div>
+        )}
+      </div>
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        button:hover { transform: scale(1.05); }
+        button:active { transform: scale(0.95); }
+      `}</style>
+    </div>
+  );
+}
+
 // ── MUSIC PLAYER ─────────────────────────────────────────────────────────────
 function MusicPlayer() {
-  const audioRef  = useRef(null);
+  const audioRef = useRef(null);
+  useEffect(() => {
+    const a = new Audio();
+    a.preload = "none";
+    audioRef.current = a;
+    return () => { a.pause(); a.src = ""; };
+  }, []);
+  const [fireUnlocked, setFireUnlocked] = useState(() => {
+    try { return localStorage.getItem("drawround_fire") === "true"; } catch { return false; }
+  });
+  const [showKeypad, setShowKeypad] = useState(false);
+  const [clickSequence, setClickSequence] = useState([]);
+  const [sequenceTimer, setSequenceTimer] = useState(null);
+
+  const activePlaylist = fireUnlocked ? [...PLAYLIST, ...FIRE_PLAYLIST] : PLAYLIST;
   const [trackIdx, setTrackIdx] = useState(0);
   const [playing,  setPlaying]  = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume,   setVolume]   = useState(0.6);
   const [expanded, setExpanded] = useState(false);
-  const current = PLAYLIST[trackIdx];
+  const [activeTab, setActiveTab] = useState("main");
+  const activeTabRef = useRef("main");
+  const setTab = (tab) => { activeTabRef.current = tab; setActiveTab(tab); };
+  const current = activePlaylist[trackIdx];
   const pct = duration ? (progress / duration) * 100 : 0;
   const fmt = s => isNaN(s) ? "0:00" : `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}`;
+
+  // Handle secret click sequence
+  const handleCornerClick = (corner) => {
+    const newSequence = [...clickSequence, corner];
+    setClickSequence(newSequence);
+
+    // Clear existing timer
+    if (sequenceTimer) clearTimeout(sequenceTimer);
+
+    // Check if sequence is complete
+    if (newSequence.length === 3) {
+      if (newSequence[0] === "tl" && newSequence[1] === "br" && newSequence[2] === "bl") {
+        setShowKeypad(true);
+      }
+      setClickSequence([]);
+      setSequenceTimer(null);
+    } else {
+      // Set new timer to reset sequence after 3 seconds
+      const timer = setTimeout(() => {
+        setClickSequence([]);
+        setSequenceTimer(null);
+      }, 3000);
+      setSequenceTimer(timer);
+    }
+  };
+
+  const handleUnlock = () => {
+    setFireUnlocked(true);
+    try { localStorage.setItem("drawround_fire", "true"); } catch {}
+  };
 
   // wire up audio events whenever track changes
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
-    a.src = PLAYLIST[trackIdx].src;
+    // Don't set src here — avoids browser loading spinner on cursor
+    // src is set at play-time in toggle() and goTo()
     a.volume = volume;
     setProgress(0);
     setDuration(0);
     const onTime = () => setProgress(a.currentTime);
     const onMeta = () => setDuration(a.duration);
     const onEnd  = () => {
-      const next = (trackIdx + 1) % PLAYLIST.length;
-      setTrackIdx(next);
+      const tab = activeTabRef.current;
+      const currentList = tab === "fire" ? FIRE_PLAYLIST : PLAYLIST;
+      const startIdx    = tab === "fire" ? PLAYLIST.length : 0;
+      const endIdx      = startIdx + currentList.length - 1;
+      if (trackIdx >= endIdx) {
+        setPlaying(false);
+      } else {
+        setTrackIdx(trackIdx + 1);
+      }
     };
     a.addEventListener("timeupdate",      onTime);
     a.addEventListener("loadedmetadata",  onMeta);
@@ -41,7 +184,7 @@ function MusicPlayer() {
       a.removeEventListener("loadedmetadata", onMeta);
       a.removeEventListener("ended",          onEnd);
     };
-  }, [trackIdx]);
+  }, [trackIdx, activePlaylist, activeTab]);
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume;
@@ -54,6 +197,10 @@ function MusicPlayer() {
       a.pause();
       setPlaying(false);
     } else {
+      // Set src at play-time so browser never auto-loads (no cursor spinner)
+      if (!a.src || !a.src.endsWith(activePlaylist[trackIdx].src)) {
+        a.src = activePlaylist[trackIdx].src;
+      }
       const p = a.play();
       if (p !== undefined) {
         p.then(() => setPlaying(true)).catch(() => setPlaying(false));
@@ -67,10 +214,11 @@ function MusicPlayer() {
     const wasPlaying = playing;
     setPlaying(false);
     setTrackIdx(idx);
-    // after trackIdx effect fires and sets src, autoplay if was playing
     setTimeout(() => {
       const a = audioRef.current;
       if (!a) return;
+      a.src = activePlaylist[idx].src;
+      a.load();
       if (wasPlaying) {
         const p = a.play();
         if (p !== undefined) p.then(() => setPlaying(true)).catch(() => {});
@@ -79,10 +227,10 @@ function MusicPlayer() {
     }, 100);
   };
 
-  const next = () => goTo((trackIdx + 1) % PLAYLIST.length);
+  const next = () => goTo((trackIdx + 1) % activePlaylist.length);
   const prev = () => {
     if (progress > 3) { audioRef.current.currentTime = 0; }
-    else goTo((trackIdx - 1 + PLAYLIST.length) % PLAYLIST.length);
+    else goTo((trackIdx - 1 + activePlaylist.length) % activePlaylist.length);
   };
 
   const seek = e => {
@@ -95,114 +243,141 @@ function MusicPlayer() {
   const s = { btn: { background:"none", border:"none", color:"#64748b", cursor:"pointer", fontSize:18, padding:"4px 8px" } };
 
   return (
-    <div style={{ position:"fixed", bottom:20, right:20, zIndex:100, userSelect:"none", fontFamily:"'Inter',system-ui,sans-serif" }}>
-      <audio ref={audioRef} preload="metadata" />
+    <>
+      {/* Invisible corner click zones — cursor: "default" so nothing looks clickable */}
+      <div onClick={() => handleCornerClick("tl")} style={{ position: "fixed", top: 0, left: 0, width: 80, height: 80, zIndex: 99, cursor: "default" }} />
+      <div onClick={() => handleCornerClick("br")} style={{ position: "fixed", bottom: 0, right: 0, width: 80, height: 80, zIndex: 99, cursor: "default" }} />
+      <div onClick={() => handleCornerClick("bl")} style={{ position: "fixed", bottom: 0, left: 0, width: 80, height: 80, zIndex: 99, cursor: "default" }} />
 
-      {/* collapsed pill */}
-      {!expanded && (
-        <div onClick={() => setExpanded(true)} style={{ display:"flex", alignItems:"center", gap:10, background:"rgba(15,23,42,0.95)", border:"1px solid rgba(99,102,241,0.4)", borderRadius:999, padding:"10px 16px 10px 12px", cursor:"pointer", backdropFilter:"blur(16px)", boxShadow:"0 4px 24px rgba(99,102,241,0.2)", minWidth:220 }}>
-          {/* EQ bars */}
-          <div style={{ display:"flex", alignItems:"flex-end", gap:2, height:20, width:20, flexShrink:0 }}>
-            {[14,8,12].map((h,i) => (
-              <div key={i} style={{ flex:1, borderRadius:2, background: playing ? "#818cf8" : "#374151", height: playing ? undefined : 4, animation: playing ? `bar${i} 0.8s ease-in-out ${i*0.15}s infinite alternate` : "none" }} />
-            ))}
-          </div>
-          <div style={{ flex:1, overflow:"hidden" }}>
-            <div style={{ color:"#f1f5f9", fontSize:13, fontWeight:700, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{current.title}</div>
-            <div style={{ color:"#64748b", fontSize:11 }}>{current.artist}</div>
-          </div>
-          <div style={{ display:"flex", alignItems:"center", gap:4 }} onClick={e => e.stopPropagation()}>
-            <button onClick={prev} style={s.btn}>⏮</button>
-            <button onClick={toggle} style={{ width:34, height:34, borderRadius:"50%", background:"rgba(99,102,241,0.3)", border:"1px solid rgba(99,102,241,0.5)", color:"#a5b4fc", cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center" }}>
-              {playing ? "⏸" : "▶"}
-            </button>
-            <button onClick={next} style={s.btn}>⏭</button>
-          </div>
-        </div>
-      )}
+      {showKeypad && <Keypad onClose={() => setShowKeypad(false)} onUnlock={handleUnlock} />}
 
-      {/* expanded card */}
-      {expanded && (
-        <div style={{ width:280, background:"rgba(15,23,42,0.97)", border:"1px solid rgba(99,102,241,0.3)", borderRadius:22, padding:18, backdropFilter:"blur(20px)", boxShadow:"0 8px 48px rgba(99,102,241,0.25)" }}>
+      <div style={{ position:"fixed", bottom:20, right:20, zIndex:100, userSelect:"none", fontFamily:"'Inter',system-ui,sans-serif" }}>
 
-          {/* header */}
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-              <div style={{ display:"flex", alignItems:"flex-end", gap:2, height:16 }}>
-                {[0,1,2].map(i => (
-                  <div key={i} style={{ width:3, borderRadius:2, background: playing ? "#818cf8" : "#374151", height: playing ? undefined : 4, animation: playing ? `bar${i} 0.8s ease-in-out ${i*0.15}s infinite alternate` : "none" }} />
-                ))}
-              </div>
-              <span style={{ color:"#818cf8", fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase" }}>Now Playing</span>
+        {/* collapsed pill */}
+        {!expanded && (
+          <div onClick={() => setExpanded(true)} style={{ display:"flex", alignItems:"center", gap:10, background:"rgba(15,23,42,0.95)", border:"1px solid rgba(99,102,241,0.4)", borderRadius:999, padding:"10px 16px 10px 12px", cursor:"pointer", backdropFilter:"blur(16px)", boxShadow:"0 4px 24px rgba(99,102,241,0.2)", minWidth:220 }}>
+            {/* EQ bars */}
+            <div style={{ display:"flex", alignItems:"flex-end", gap:2, height:20, width:20, flexShrink:0 }}>
+              {[14,8,12].map((h,i) => (
+                <div key={i} style={{ flex:1, borderRadius:2, background: playing ? "#818cf8" : "#374151", height: playing ? undefined : 4, animation: playing ? `bar${i} 0.8s ease-in-out ${i*0.15}s infinite alternate` : "none" }} />
+              ))}
             </div>
-            <button onClick={() => setExpanded(false)} style={{ background:"none", border:"none", color:"#475569", cursor:"pointer", fontSize:18, lineHeight:1 }}>✕</button>
-          </div>
-
-          {/* vinyl art */}
-          <div style={{ width:"100%", aspectRatio:"1", borderRadius:16, background:"linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.08))", border:"1px solid rgba(99,102,241,0.2)", display:"flex", alignItems:"center", justifyContent:"center", marginBottom:14, position:"relative", overflow:"hidden" }}>
-            <div style={{ width:72, height:72, borderRadius:"50%", border:"2px solid rgba(99,102,241,0.4)", display:"flex", alignItems:"center", justifyContent:"center", animation: playing ? "spin 4s linear infinite" : "none" }}>
-              <div style={{ width:44, height:44, borderRadius:"50%", border:"2px solid rgba(99,102,241,0.25)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                <div style={{ width:10, height:10, borderRadius:"50%", background:"#6366f1" }} />
-              </div>
+            <div style={{ flex:1, overflow:"hidden" }}>
+              <div style={{ color:"#f1f5f9", fontSize:13, fontWeight:700, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{current.title}</div>
+              <div style={{ color:"#64748b", fontSize:11 }}>{current.artist}</div>
+            </div>
+            <div style={{ display:"flex", alignItems:"center", gap:4 }} onClick={e => e.stopPropagation()}>
+              <button onClick={prev} style={s.btn}>⏮</button>
+              <button onClick={toggle} style={{ width:34, height:34, borderRadius:"50%", background:"rgba(99,102,241,0.3)", border:"1px solid rgba(99,102,241,0.5)", color:"#a5b4fc", cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                {playing ? "⏸" : "▶"}
+              </button>
+              <button onClick={next} style={s.btn}>⏭</button>
             </div>
           </div>
+        )}
 
-          {/* title */}
-          <div style={{ textAlign:"center", marginBottom:14 }}>
-            <div style={{ color:"#f1f5f9", fontSize:15, fontWeight:700, marginBottom:3 }}>{current.title}</div>
-            <div style={{ color:"#64748b", fontSize:12 }}>{current.artist}</div>
-          </div>
+        {/* expanded card */}
+        {expanded && (
+          <div style={{ width:280, background:"rgba(15,23,42,0.97)", border:"1px solid rgba(99,102,241,0.3)", borderRadius:22, padding:18, backdropFilter:"blur(20px)", boxShadow:"0 8px 48px rgba(99,102,241,0.25)" }}>
 
-          {/* progress */}
-          <div onClick={seek} style={{ height:6, background:"rgba(99,102,241,0.2)", borderRadius:6, cursor:"pointer", position:"relative", marginBottom:4 }}>
-            <div style={{ height:"100%", width:`${pct}%`, background:"linear-gradient(90deg,#6366f1,#a78bfa)", borderRadius:6, transition:"width 0.25s" }} />
-            <div style={{ position:"absolute", top:"50%", left:`${pct}%`, transform:"translate(-50%,-50%)", width:13, height:13, borderRadius:"50%", background:"#818cf8", border:"2px solid #0f172a", boxShadow:"0 0 8px #6366f1" }} />
-          </div>
-          <div style={{ display:"flex", justifyContent:"space-between", color:"#475569", fontSize:11, marginBottom:16 }}>
-            <span>{fmt(progress)}</span><span>{fmt(duration)}</span>
-          </div>
-
-          {/* controls */}
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:16, marginBottom:16 }}>
-            <button onClick={prev} style={s.btn} title="Prev / Restart">⏮</button>
-            <button onClick={toggle} style={{ width:52, height:52, borderRadius:"50%", background:"linear-gradient(135deg,#6366f1,#8b5cf6)", border:"none", color:"#fff", cursor:"pointer", fontSize:20, display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 0 20px rgba(99,102,241,0.5)" }}>
-              {playing ? "⏸" : "▶"}
-            </button>
-            <button onClick={next} style={s.btn} title="Next">⏭</button>
-          </div>
-
-          {/* volume */}
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
-            <span style={{ color:"#475569", fontSize:14 }}>{volume===0?"🔇":volume<0.5?"🔉":"🔊"}</span>
-            <input type="range" min="0" max="1" step="0.01" value={volume}
-              onChange={e => setVolume(parseFloat(e.target.value))}
-              style={{ flex:1, accentColor:"#6366f1", cursor:"pointer" }} />
-          </div>
-
-          {/* playlist */}
-          <div style={{ borderTop:"1px solid rgba(99,102,241,0.15)", paddingTop:12 }}>
-            {PLAYLIST.map((t,i) => (
-              <div key={i} onClick={() => goTo(i)} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 10px", borderRadius:10, cursor:"pointer", background: i===trackIdx ? "rgba(99,102,241,0.14)" : "transparent", border: i===trackIdx ? "1px solid rgba(99,102,241,0.25)" : "1px solid transparent", marginBottom:3 }}>
-                <div style={{ width:28, height:28, borderRadius:"50%", background: i===trackIdx ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "rgba(99,102,241,0.1)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:11, color: i===trackIdx ? "#fff" : "#64748b", fontWeight:700 }}>
-                  {i===trackIdx && playing ? "♪" : i+1}
+            {/* header */}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <div style={{ display:"flex", alignItems:"flex-end", gap:2, height:16 }}>
+                  {[0,1,2].map(i => (
+                    <div key={i} style={{ width:3, borderRadius:2, background: playing ? "#818cf8" : "#374151", height: playing ? undefined : 4, animation: playing ? `bar${i} 0.8s ease-in-out ${i*0.15}s infinite alternate` : "none" }} />
+                  ))}
                 </div>
-                <div style={{ flex:1, overflow:"hidden" }}>
-                  <div style={{ color: i===trackIdx ? "#f1f5f9" : "#94a3b8", fontSize:13, fontWeight: i===trackIdx ? 700 : 400, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{t.title}</div>
-                  <div style={{ color:"#475569", fontSize:11 }}>{t.artist}</div>
+                <span style={{ color:"#818cf8", fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase" }}>Now Playing</span>
+              </div>
+              <button onClick={() => setExpanded(false)} style={{ background:"none", border:"none", color:"#475569", cursor:"pointer", fontSize:18, lineHeight:1 }}>✕</button>
+            </div>
+
+            {/* vinyl art */}
+            <div style={{ width:"100%", aspectRatio:"1", borderRadius:16, background:"linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.08))", border:"1px solid rgba(99,102,241,0.2)", display:"flex", alignItems:"center", justifyContent:"center", marginBottom:14, position:"relative", overflow:"hidden" }}>
+              <div style={{ width:72, height:72, borderRadius:"50%", border:"2px solid rgba(99,102,241,0.4)", display:"flex", alignItems:"center", justifyContent:"center", animation: playing ? "spin 4s linear infinite" : "none" }}>
+                <div style={{ width:44, height:44, borderRadius:"50%", border:"2px solid rgba(99,102,241,0.25)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  <div style={{ width:10, height:10, borderRadius:"50%", background:"#6366f1" }} />
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </div>
 
-      <style>{`
-        @keyframes bar0 { from{height:4px}  to{height:16px} }
-        @keyframes bar1 { from{height:12px} to{height:5px}  }
-        @keyframes bar2 { from{height:7px}  to{height:14px} }
-        @keyframes spin  { to{transform:rotate(360deg)} }
-      `}</style>
-    </div>
+            {/* title */}
+            <div style={{ textAlign:"center", marginBottom:14 }}>
+              <div style={{ color:"#f1f5f9", fontSize:15, fontWeight:700, marginBottom:3 }}>{current.title}</div>
+              <div style={{ color:"#64748b", fontSize:12 }}>{current.artist}</div>
+            </div>
+
+            {/* progress */}
+            <div onClick={seek} style={{ height:6, background:"rgba(99,102,241,0.2)", borderRadius:6, cursor:"pointer", position:"relative", marginBottom:4 }}>
+              <div style={{ height:"100%", width:`${pct}%`, background:"linear-gradient(90deg,#6366f1,#a78bfa)", borderRadius:6, transition:"width 0.25s" }} />
+              <div style={{ position:"absolute", top:"50%", left:`${pct}%`, transform:"translate(-50%,-50%)", width:13, height:13, borderRadius:"50%", background:"#818cf8", border:"2px solid #0f172a", boxShadow:"0 0 8px #6366f1" }} />
+            </div>
+            <div style={{ display:"flex", justifyContent:"space-between", color:"#475569", fontSize:11, marginBottom:16 }}>
+              <span>{fmt(progress)}</span><span>{fmt(duration)}</span>
+            </div>
+
+            {/* controls */}
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:16, marginBottom:16 }}>
+              <button onClick={prev} style={s.btn} title="Prev / Restart">⏮</button>
+              <button onClick={toggle} style={{ width:52, height:52, borderRadius:"50%", background:"linear-gradient(135deg,#6366f1,#8b5cf6)", border:"none", color:"#fff", cursor:"pointer", fontSize:20, display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 0 20px rgba(99,102,241,0.5)" }}>
+                {playing ? "⏸" : "▶"}
+              </button>
+              <button onClick={next} style={s.btn} title="Next">⏭</button>
+            </div>
+
+            {/* volume */}
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
+              <span style={{ color:"#475569", fontSize:14 }}>{volume===0?"🔇":volume<0.5?"🔉":"🔊"}</span>
+              <input type="range" min="0" max="1" step="0.01" value={volume}
+                onChange={e => setVolume(parseFloat(e.target.value))}
+                style={{ flex:1, accentColor:"#6366f1", cursor:"pointer" }} />
+            </div>
+
+            {/* playlist */}
+            <div style={{ borderTop:"1px solid rgba(99,102,241,0.15)", paddingTop:12 }}>
+              {/* Tabs — only show when fire is unlocked */}
+              {fireUnlocked && (
+                <div style={{ display:"flex", gap:6, marginBottom:10 }}>
+                  <button onClick={() => setTab("main")} style={{ flex:1, padding:"5px 0", borderRadius:8, border: activeTab==="main" ? "1px solid rgba(99,102,241,0.5)" : "1px solid rgba(99,102,241,0.15)", background: activeTab==="main" ? "rgba(99,102,241,0.2)" : "transparent", color: activeTab==="main" ? "#a5b4fc" : "#475569", fontSize:11, fontWeight:700, cursor:"pointer", transition:"all 0.2s" }}>
+                    🎵 DJ Aldo
+                  </button>
+                  <button onClick={() => setTab("fire")} style={{ flex:1, padding:"5px 0", borderRadius:8, border: activeTab==="fire" ? "1px solid rgba(245,158,11,0.5)" : "1px solid rgba(245,158,11,0.15)", background: activeTab==="fire" ? "rgba(245,158,11,0.15)" : "transparent", color: activeTab==="fire" ? "#fbbf24" : "#475569", fontSize:11, fontWeight:700, cursor:"pointer", transition:"all 0.2s" }}>
+                    🔥 Fire
+                  </button>
+                </div>
+              )}
+              {/* Track list — scrollable, never overflows */}
+              <div style={{ maxHeight:138, overflowY:"auto", overflowX:"hidden", paddingRight:2 }}>
+                {(fireUnlocked && activeTab==="fire" ? FIRE_PLAYLIST : PLAYLIST).map((t, localIdx) => {
+                  const globalIdx = fireUnlocked && activeTab==="fire" ? PLAYLIST.length + localIdx : localIdx;
+                  const isActive = trackIdx === globalIdx;
+                  const isFire = fireUnlocked && activeTab==="fire";
+                  return (
+                    <div key={globalIdx} onClick={() => goTo(globalIdx)} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 8px", borderRadius:10, cursor:"pointer", background: isActive ? (isFire ? "rgba(245,158,11,0.12)" : "rgba(99,102,241,0.14)") : "transparent", border: isActive ? (isFire ? "1px solid rgba(245,158,11,0.3)" : "1px solid rgba(99,102,241,0.25)") : "1px solid transparent", marginBottom:3, transition:"background 0.15s, border 0.15s" }}>
+                      <div style={{ width:26, height:26, borderRadius:"50%", flexShrink:0, background: isActive ? (isFire ? "linear-gradient(135deg,#f59e0b,#ef4444)" : "linear-gradient(135deg,#6366f1,#8b5cf6)") : (isFire ? "rgba(245,158,11,0.1)" : "rgba(99,102,241,0.1)"), display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, color: isActive ? "#fff" : "#64748b", fontWeight:700 }}>
+                        {isActive && playing ? "♪" : localIdx+1}
+                      </div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ color: isActive ? "#f1f5f9" : "#94a3b8", fontSize:12, fontWeight: isActive ? 700 : 400, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{t.title}</div>
+                        <div style={{ color:"#475569", fontSize:11, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{t.artist}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <style>{`
+          @keyframes bar0 { from{height:4px}  to{height:16px} }
+          @keyframes bar1 { from{height:12px} to{height:5px}  }
+          @keyframes bar2 { from{height:7px}  to{height:14px} }
+          @keyframes spin  { to{transform:rotate(360deg)} }
+        `}</style>
+      </div>
+    </>
   );
 }
 
@@ -291,7 +466,6 @@ export default function App() {
 
   const getPos = e=>{ const r=canvasRef.current.getBoundingClientRect(); const s=e.touches?e.touches[0]:e; return{x:s.clientX-r.left,y:s.clientY-r.top}; };
 
-  // clicking anywhere starts a new drawing — no need to hit Try Again
   const onStart = e=>{ e.preventDefault(); clear(); setDrawing(true); setPts([getPos(e)]); };
   const onMove  = e=>{ e.preventDefault(); if(!drawing)return; setPts(p=>[...p,getPos(e)]); };
   const onEnd   = e=>{
@@ -379,7 +553,6 @@ export default function App() {
           </div>
         )}
 
-        {/* score card — no dark overlay, just floats at bottom so you can see your circle */}
         {result&&(
           <div style={{ position:"absolute", bottom:24, left:"50%", transform:"translateX(-50%)", pointerEvents:"none" }}>
             <div style={{ background:"rgba(15,23,42,0.93)", border:`1px solid ${scoreColor}55`, borderRadius:18, padding:"18px 36px", textAlign:"center", whiteSpace:"nowrap", boxShadow:`0 0 32px ${scoreColor}22` }}>
