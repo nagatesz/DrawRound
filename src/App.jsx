@@ -97,12 +97,14 @@ function Keypad({ onClose, onUnlock }) {
 // ── MUSIC PLAYER ─────────────────────────────────────────────────────────────
 function MusicPlayer() {
   const audioRef = useRef(null);
-  useEffect(() => {
-    const a = new Audio();
-    a.preload = "none";
-    audioRef.current = a;
-    return () => { a.pause(); a.src = ""; };
-  }, []);
+  const getAudio = () => {
+    if (!audioRef.current) {
+      const a = new Audio();
+      a.preload = "none";
+      audioRef.current = a;
+    }
+    return audioRef.current;
+  };
   const [fireUnlocked, setFireUnlocked] = useState(() => {
     try { return localStorage.getItem("drawround_fire") === "true"; } catch { return false; }
   });
@@ -191,8 +193,7 @@ function MusicPlayer() {
   }, [volume]);
 
   const toggle = () => {
-    const a = audioRef.current;
-    if (!a) return;
+    const a = getAudio();
     if (playing) {
       a.pause();
       setPlaying(false);
@@ -215,8 +216,7 @@ function MusicPlayer() {
     setPlaying(false);
     setTrackIdx(idx);
     setTimeout(() => {
-      const a = audioRef.current;
-      if (!a) return;
+      const a = getAudio();
       a.src = activePlaylist[idx].src;
       a.load();
       if (wasPlaying) {
@@ -375,6 +375,13 @@ function MusicPlayer() {
           @keyframes bar1 { from{height:12px} to{height:5px}  }
           @keyframes bar2 { from{height:7px}  to{height:14px} }
           @keyframes spin  { to{transform:rotate(360deg)} }
+          html, body { cursor: default !important; }
+        *, *:focus, *:active { outline: none !important; -webkit-tap-highlight-color: transparent !important; }
+          html, body { cursor: default !important; }
+          button, div, input, canvas { -webkit-tap-highlight-color: transparent !important; }
+          ::-webkit-scrollbar { width: 4px; }
+          ::-webkit-scrollbar-track { background: transparent; }
+          ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.3); border-radius: 4px; }
         `}</style>
       </div>
     </>
@@ -507,7 +514,10 @@ export default function App() {
       </div>
       <div style={{ position:"absolute", bottom:24 }}><Credits/></div>
       <MusicPlayer/>
-      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}`}</style>
+      <style>{`
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}
+        *, *:focus, *:active { outline: none !important; -webkit-tap-highlight-color: transparent !important; }
+      `}</style>
     </div>
   );
 
