@@ -282,7 +282,12 @@ export default function App() {
   }, [pts, result, showGrid, dpr, screen]);
 
   const getPos = e => { const r = canvasRef.current.getBoundingClientRect(); const s = e.touches ? e.touches[0] : e; return { x: s.clientX - r.left, y: s.clientY - r.top }; };
-  const onStart = e => { e.preventDefault(); if (result) clear(); setDrawing(true); setPts([getPos(e)]); };
+  const onStart = e => {
+    e.preventDefault();
+    clear();
+    setDrawing(true);
+    setPts([getPos(e)]);
+  };
   const onMove  = e => { e.preventDefault(); if (!drawing) return; setPts(p => [...p, getPos(e)]); };
   const onEnd   = e => {
     e.preventDefault(); if (!drawing) return; setDrawing(false);
@@ -365,14 +370,14 @@ export default function App() {
           </div>
         )}
         {result && (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(15,23,42,0.82)", backdropFilter: "blur(4px)" }}>
-            <div style={{ background: "rgba(15,23,42,0.95)", border: `1px solid ${scoreColor}44`, borderRadius: 20, padding: "32px 44px", textAlign: "center", maxWidth: 340, boxShadow: `0 0 40px ${scoreColor}22` }}>
-              <div style={{ width: 100, height: 100, borderRadius: "50%", border: `4px solid ${scoreColor}`, margin: "0 auto 20px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 20px ${scoreColor}44` }}>
-                <span style={{ color: scoreColor, fontSize: 30, fontWeight: 800 }}>{result.score}</span>
+          <div style={{ position: "absolute", bottom: 100, left: "50%", transform: "translateX(-50%)", zIndex: 10, pointerEvents: "none" }}>
+            <div style={{ background: "rgba(15,23,42,0.95)", border: `1px solid ${scoreColor}44`, borderRadius: 20, padding: "24px 44px", textAlign: "center", whiteSpace: "nowrap", boxShadow: `0 0 40px ${scoreColor}22` }}>
+              <div style={{ width: 80, height: 80, borderRadius: "50%", border: `4px solid ${scoreColor}`, margin: "0 auto 16px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 20px ${scoreColor}44` }}>
+                <span style={{ color: scoreColor, fontSize: 26, fontWeight: 800 }}>{result.score}</span>
               </div>
-              <div style={{ color: "#f1f5f9", fontSize: 16, fontWeight: 600, marginBottom: 6 }}>{getMessage(result.score)}</div>
-              <div style={{ color: "#64748b", fontSize: 13, marginBottom: 24 }}>Best: <span style={{ color: "#94a3b8" }}>{best}</span> &nbsp;·&nbsp; Attempt #{attempts}</div>
-              <button onClick={clear} style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "none", color: "#fff", borderRadius: 10, padding: "10px 28px", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Try Again</button>
+              <div style={{ color: "#f1f5f9", fontSize: 15, fontWeight: 600, marginBottom: 4 }}>{getMessage(result.score)}</div>
+              <div style={{ color: "#64748b", fontSize: 12 }}>Best: <span style={{ color: "#94a3b8" }}>{best}</span> &nbsp;·&nbsp; Attempt #{attempts}</div>
+              <div style={{ color: "#475569", fontSize: 11, marginTop: 8 }}>Draw anywhere to go again</div>
             </div>
           </div>
         )}
