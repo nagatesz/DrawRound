@@ -2,7 +2,7 @@
 
 Can you draw a perfect circle? Built by **nog & Claude Sonnet 4.6**
 
-🔗 **Live Demo:** [drawround.vercel.app](https://drawround.vercel.app)
+🔗 **Live Demo:** [draw-round.vercel.app](https://draw-round.vercel.app)
 
 ---
 
@@ -46,5 +46,6 @@ npm run build
 - localStorage for score persistence
 
 ## 👥 Credits
+
 
 Built by **nog & Claude Sonnet 4.6**
