@@ -138,7 +138,6 @@ function MusicPlayer() {
     try { return localStorage.getItem("drawround_fire") === "true"; } catch { return false; }
   });
   const [showKeypad, setShowKeypad] = useState(false);
-  const [clickSequence, setClickSequence] = useState([]);
   const sequenceTimerRef = useRef(null);
 
   const activePlaylist = fireUnlocked ? [...PLAYLIST, ...FIRE_PLAYLIST] : PLAYLIST;
@@ -196,18 +195,31 @@ function MusicPlayer() {
     if (audioRef.current) audioRef.current.volume = volume;
   }, [volume]);
 
-  // Handle secret corner click sequence
-  const handleCornerClick = (corner) => {
-    const newSeq = [...clickSequence, corner];
-    setClickSequence(newSeq);
-    if (sequenceTimerRef.current) clearTimeout(sequenceTimerRef.current);
-    if (newSeq.length === 3) {
-      if (newSeq[0] === "tl" && newSeq[1] === "br" && newSeq[2] === "bl") setShowKeypad(true);
-      setClickSequence([]);
-    } else {
-      sequenceTimerRef.current = setTimeout(() => setClickSequence([]), 3000);
-    }
-  };
+  // Corner detection via window click — no invisible divs, never blocks any button
+  const clickSeqRef = useRef([]);
+  useEffect(() => {
+    const ZONE = 80;
+    const onWindowClick = (e) => {
+      const x = e.clientX, y = e.clientY;
+      const w = window.innerWidth, h = window.innerHeight;
+      let corner = null;
+      if (x < ZONE && y < ZONE)           corner = "tl";
+      else if (x > w - ZONE && y > h - ZONE) corner = "br";
+      else if (x < ZONE && y > h - ZONE)  corner = "bl";
+      if (!corner) return;
+      const seq = [...clickSeqRef.current, corner];
+      clickSeqRef.current = seq;
+      if (sequenceTimerRef.current) clearTimeout(sequenceTimerRef.current);
+      if (seq.length === 3) {
+        if (seq[0] === "tl" && seq[1] === "br" && seq[2] === "bl") setShowKeypad(true);
+        clickSeqRef.current = [];
+      } else {
+        sequenceTimerRef.current = setTimeout(() => { clickSeqRef.current = []; }, 3000);
+      }
+    };
+    window.addEventListener("click", onWindowClick);
+    return () => window.removeEventListener("click", onWindowClick);
+  }, []);
 
   const handleUnlock = () => {
     setFireUnlocked(true);
@@ -263,10 +275,7 @@ function MusicPlayer() {
 
   return (
     <>
-      {/* Invisible corner click zones */}
-      <div onClick={() => handleCornerClick("tl")} style={{ position:"fixed", top:0, left:0, width:80, height:80, zIndex:99, cursor:"default" }} />
-      <div onClick={() => handleCornerClick("br")} style={{ position:"fixed", bottom:0, right:0, width:80, height:80, zIndex:99, cursor:"default" }} />
-      <div onClick={() => handleCornerClick("bl")} style={{ position:"fixed", bottom:0, left:0, width:80, height:80, zIndex:99, cursor:"default" }} />
+      {/* Corner detection via window listener — no divs needed, never blocks anything */}
 
       {showKeypad && <Keypad onClose={() => setShowKeypad(false)} onUnlock={handleUnlock} />}
 
