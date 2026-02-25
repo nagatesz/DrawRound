@@ -124,16 +124,15 @@ function CoverArt({ track, playing }) {
 }
 
 // ── MUSIC PLAYER ─────────────────────────────────────────────────────────────
-function MusicPlayer() {
-  const audioRef  = useRef(null);
+// Module-level audio singleton — survives React unmounts, music never stops on screen change
+if (!window.__drAudio) {
+  const a = document.createElement("audio");
+  a.preload = "none";
+  window.__drAudio = a;
+}
 
-  // Create audio element once on mount — no src yet so no network request
-  useEffect(() => {
-    const a = document.createElement("audio");
-    a.preload = "none";
-    audioRef.current = a;
-    return () => { a.pause(); a.src = ""; };
-  }, []);
+function MusicPlayer() {
+  const audioRef = useRef(window.__drAudio);
 
   const [fireUnlocked, setFireUnlocked] = useState(() => {
     try { return localStorage.getItem("drawround_fire") === "true"; } catch { return false; }
@@ -405,12 +404,12 @@ const SHAPES = ["free","line","rect","ellipse","triangle","arrow"];
 const SHAPE_ICONS = { free:"✏️", line:"╱", rect:"▭", ellipse:"⬭", triangle:"△", arrow:"→" };
 const TOOLS = ["pen","brush","eraser","fill","shapes","eyedropper"];
 const TOOL_ICONS = {
-  pen: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>,
-  brush: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9.06 11.9l8.07-8.06a2.85 2.85 0 114.03 4.03l-8.06 8.08"/><path d="M7.07 14.94C5.79 16.2 5.5 19 5.5 19s2.8-.29 4.06-1.57"/><path d="M4 20l1.5-1.5"/></svg>,
-  eraser: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 20H7L3 16l10-10 7 7-2.5 2.5"/><path d="M6.0 11.0l4 4"/></svg>,
-  fill: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 11L8 2l-5.5 9.5a5.5 5.5 0 0011 0z"/><path d="M19 11c0 3.04-2.46 5.5-5.5 5.5S8 14.04 8 11"/><path d="M19 11h2a2 2 0 010 4h-1a2 2 0 00-2 2v1a2 2 0 01-2 2 2 2 0 01-2-2c0-1.5 1-3 3-3"/></svg>,
-  shapes: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="8" height="8"/><circle cx="17" cy="7" r="4"/><polygon points="3,21 7,13 11,21"/><line x1="14" y1="14" x2="20" y2="20"/></svg>,
-  eyedropper: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 22l1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="M15 6l3.4-3.4a2 2 0 012.8 2.8L18 9l3 3-6 6-3-3-3.5 3.5H6v-3.5L15 6z"/></svg>,
+  pen:        "✏️",
+  brush:      "🖌️",
+  eraser:     "🧹",
+  fill:       "🪣",
+  shapes:     "⬡",
+  eyedropper: "💉",
 };
 
 function hexToRgb(hex) {
@@ -462,6 +461,10 @@ function DrawPad({ onBack }) {
   const [startPt,   setStartPt]   = useState(null);
   const [canUndo,   setCanUndo]   = useState(false);
   const [canRedo,   setCanRedo]   = useState(false);
+  const [shapesY,   setShapesY]   = useState(100);
+  const [sizeY,     setSizeY]     = useState(200);
+  const shapeBtnRef = useRef(null);
+  const sizeBtnRef  = useRef(null);
 
   const PRESETS = ["#818cf8","#f472b6","#34d399","#fbbf24","#f87171","#60a5fa","#a78bfa","#ffffff","#000000","#0f172a"];
 
@@ -684,6 +687,29 @@ function DrawPad({ onBack }) {
   return (
     <div style={{ width:"100vw", height:"100vh", background:"#0f172a", display:"flex", flexDirection:"column", fontFamily:"'Inter',system-ui,sans-serif", overflow:"hidden" }}>
 
+      {/* Fixed popups — outside overflow containers so they never get clipped */}
+      {showShapes && (
+        <div style={{ position:"fixed", left:64, top:shapesY, background:"rgba(10,15,30,0.99)", border:"1px solid rgba(99,102,241,0.4)", borderRadius:14, padding:8, display:"flex", flexDirection:"column", gap:4, zIndex:9999, minWidth:140, boxShadow:"0 8px 40px rgba(0,0,0,0.8)" }}>
+          {SHAPES.map(sh => (
+            <button key={sh} onClick={()=>{ setShape(sh); setShowShapes(false); }}
+              style={{ background: shape===sh?"rgba(99,102,241,0.25)":"transparent", border: shape===sh?"1px solid rgba(99,102,241,0.5)":"1px solid transparent", borderRadius:8, padding:"7px 12px", color: shape===sh?"#a5b4fc":"#94a3b8", fontSize:13, cursor:"pointer", textAlign:"left", fontWeight: shape===sh?700:400, display:"flex", alignItems:"center", gap:10 }}>
+              <span style={{ fontSize:16 }}>{SHAPE_ICONS[sh]}</span>{sh.charAt(0).toUpperCase()+sh.slice(1)}
+            </button>
+          ))}
+        </div>
+      )}
+      {showSize && (
+        <div style={{ position:"fixed", left:64, top:sizeY, background:"rgba(10,15,30,0.99)", border:"1px solid rgba(99,102,241,0.4)", borderRadius:14, padding:14, zIndex:9999, width:164, boxShadow:"0 8px 40px rgba(0,0,0,0.8)" }}>
+          <div style={{ color:"#64748b", fontSize:11, marginBottom:8, fontWeight:700 }}>SIZE — {size}px</div>
+          <input type="range" min="1" max="40" value={size} onChange={e=>setSize(Number(e.target.value))} style={{ width:"100%", accentColor:"#6366f1", cursor:"pointer" }} />
+          <div style={{ display:"flex", gap:6, marginTop:8 }}>
+            {[2,5,10,20].map(sv=>(
+              <button key={sv} onClick={()=>setSize(sv)} style={{ flex:1, padding:"5px 0", borderRadius:6, background: size===sv?"rgba(99,102,241,0.3)":"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.2)", color:"#a5b4fc", fontSize:11, cursor:"pointer" }}>{sv}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ padding:"10px 16px", borderBottom:"1px solid rgba(99,102,241,0.2)", display:"flex", alignItems:"center", justifyContent:"space-between", background:"rgba(15,23,42,0.95)", backdropFilter:"blur(8px)", flexShrink:0, zIndex:20 }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
@@ -696,125 +722,99 @@ function DrawPad({ onBack }) {
           </div>
         </div>
         <div style={{ display:"flex", gap:8 }}>
-          <button onClick={undo} disabled={!canUndo} style={{ ...btnStyle(false), opacity: canUndo?1:0.3, fontSize:18 }} title="Undo">↩</button>
-          <button onClick={redo} disabled={!canRedo} style={{ ...btnStyle(false), opacity: canRedo?1:0.3, fontSize:18 }} title="Redo">↪</button>
-          <button onClick={clearCanvas} style={{ ...btnStyle(false), color:"#f87171", borderColor:"rgba(248,113,113,0.3)" }} title="Clear">🗑</button>
+          <button onClick={undo} disabled={!canUndo} style={{ ...btnStyle(false), opacity:canUndo?1:0.3, fontSize:18 }}>↩</button>
+          <button onClick={redo} disabled={!canRedo} style={{ ...btnStyle(false), opacity:canRedo?1:0.3, fontSize:18 }}>↪</button>
+          <button onClick={clearCanvas} style={{ ...btnStyle(false), color:"#f87171", borderColor:"rgba(248,113,113,0.3)" }}>🗑</button>
           <button onClick={saveImage} style={{ ...btnStyle(false), color:"#34d399", borderColor:"rgba(52,211,153,0.3)", fontSize:13, fontWeight:700, width:"auto", padding:"0 14px" }}>Save ↓</button>
         </div>
       </div>
 
-      {/* Main area */}
-      <div style={{ flex:1, display:"flex", overflow:"hidden" }}>
+      {/* Body */}
+      <div style={{ flex:1, display:"flex", overflow:"hidden" }} onClick={()=>{ setShowShapes(false); setShowSize(false); }}>
 
         {/* Left toolbar */}
-        <div style={{ width:56, background:"rgba(15,23,42,0.9)", borderRight:"1px solid rgba(99,102,241,0.15)", display:"flex", flexDirection:"column", alignItems:"center", padding:"12px 0", gap:6, flexShrink:0, zIndex:10, overflowY:"auto" }}>
-
-          {/* Tools */}
+        <div style={{ width:56, background:"rgba(15,23,42,0.9)", borderRight:"1px solid rgba(99,102,241,0.15)", display:"flex", flexDirection:"column", alignItems:"center", padding:"12px 0", gap:6, flexShrink:0, zIndex:10 }}>
           {TOOLS.map(t => (
-            <div key={t} style={{ position:"relative" }}>
-              <button
-                title={t}
-                onClick={() => { setTool(t); if(t==="shapes") setShowShapes(s=>!s); else setShowShapes(false); setShowSize(false); }}
-                style={btnStyle(tool===t)}
-              >
-                {TOOL_ICONS[t]}
-              </button>
-              {/* Shape submenu */}
-              {t==="shapes" && showShapes && (
-                <div style={{ position:"absolute", left:48, top:0, background:"rgba(15,23,42,0.98)", border:"1px solid rgba(99,102,241,0.3)", borderRadius:12, padding:8, display:"flex", flexDirection:"column", gap:4, zIndex:50, minWidth:120, boxShadow:"0 8px 32px rgba(0,0,0,0.5)" }}>
-                  {SHAPES.map(sh => (
-                    <button key={sh} onClick={(e)=>{ e.stopPropagation(); setShape(sh); setShowShapes(false); }}
-                      style={{ background: shape===sh?"rgba(99,102,241,0.2)":"transparent", border: shape===sh?"1px solid rgba(99,102,241,0.4)":"1px solid transparent", borderRadius:8, padding:"6px 12px", color: shape===sh?"#a5b4fc":"#94a3b8", fontSize:12, cursor:"pointer", textAlign:"left", fontWeight: shape===sh?700:400, display:"flex", alignItems:"center", gap:8 }}>
-                      <span style={{ fontSize:16 }}>{SHAPE_ICONS[sh]}</span> {sh.charAt(0).toUpperCase()+sh.slice(1)}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <button key={t}
+              ref={el => { if(t==="shapes") shapeBtnRef.current=el; }}
+              title={t}
+              onClick={e => {
+                e.stopPropagation();
+                setTool(t);
+                setShowSize(false);
+                if (t==="shapes") {
+                  if (shapeBtnRef.current) { const r=shapeBtnRef.current.getBoundingClientRect(); setShapesY(r.top); }
+                  setShowShapes(v=>!v);
+                } else {
+                  setShowShapes(false);
+                }
+              }}
+              style={btnStyle(tool===t)}
+            >{TOOL_ICONS[t]}</button>
           ))}
 
           <div style={{ width:32, height:1, background:"rgba(99,102,241,0.2)", margin:"4px 0" }} />
 
-          {/* Size */}
-          <div style={{ position:"relative" }}>
-            <button title="Brush size" onClick={()=>{ setShowSize(s=>!s); setShowShapes(false); }} style={{ ...btnStyle(showSize), flexDirection:"column", gap:2 }}>
-              <div style={{ width:size>8?12:size>4?8:5, height:size>8?12:size>4?8:5, borderRadius:"50%", background:"currentColor" }} />
-            </button>
-            {showSize && (
-              <div style={{ position:"absolute", left:48, top:0, background:"rgba(15,23,42,0.98)", border:"1px solid rgba(99,102,241,0.3)", borderRadius:12, padding:12, zIndex:50, minWidth:140, boxShadow:"0 8px 32px rgba(0,0,0,0.5)" }}>
-                <div style={{ color:"#64748b", fontSize:11, marginBottom:8, fontWeight:600 }}>SIZE — {size}px</div>
-                <input type="range" min="1" max="40" value={size} onChange={e=>setSize(Number(e.target.value))} style={{ width:"100%", accentColor:"#6366f1" }} />
-                <div style={{ display:"flex", gap:6, marginTop:8 }}>
-                  {[2,5,10,20].map(s=>(
-                    <button key={s} onClick={()=>setSize(s)} style={{ flex:1, padding:"4px 0", borderRadius:6, background: size===s?"rgba(99,102,241,0.3)":"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.2)", color:"#a5b4fc", fontSize:11, cursor:"pointer" }}>{s}</button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          {/* Size btn */}
+          <button ref={sizeBtnRef} title="Size"
+            onClick={e => {
+              e.stopPropagation();
+              setShowShapes(false);
+              if (sizeBtnRef.current) { const r=sizeBtnRef.current.getBoundingClientRect(); setSizeY(r.top); }
+              setShowSize(v=>!v);
+            }}
+            style={{ ...btnStyle(showSize), flexDirection:"column", gap:2 }}>
+            <div style={{ width:size>8?12:size>4?8:5, height:size>8?12:size>4?8:5, borderRadius:"50%", background:"currentColor" }} />
+          </button>
 
-          {/* Opacity */}
-          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
-            <div style={{ color:"#475569", fontSize:9, fontWeight:700, letterSpacing:"0.05em" }}>OPAC</div>
-            <input type="range" min="0.05" max="1" step="0.05" value={opacity} onChange={e=>setOpacity(Number(e.target.value))}
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3, marginTop:4 }}>
+            <div style={{ color:"#475569", fontSize:9, fontWeight:700 }}>OPAC</div>
+            <input type="range" min="0.05" max="1" step="0.05" value={opacity} onChange={e=>{e.stopPropagation();setOpacity(Number(e.target.value))}}
               style={{ width:36, accentColor:"#6366f1", writingMode:"vertical-lr", direction:"rtl", height:60, cursor:"pointer" }} />
             <div style={{ color:"#475569", fontSize:9 }}>{Math.round(opacity*100)}%</div>
           </div>
 
           <div style={{ width:32, height:1, background:"rgba(99,102,241,0.2)", margin:"4px 0" }} />
 
-          {/* Current color swatch */}
           <div style={{ width:32, height:32, borderRadius:8, background:color, border:"2px solid rgba(255,255,255,0.2)", cursor:"pointer", position:"relative", flexShrink:0 }}>
             <input type="color" value={color} onChange={e=>setColor(e.target.value)}
               style={{ position:"absolute", inset:0, opacity:0, cursor:"pointer", width:"100%", height:"100%" }} />
           </div>
         </div>
 
-        {/* Canvas area */}
+        {/* Canvas */}
         <div style={{ flex:1, position:"relative", overflow:"hidden" }}>
           <canvas ref={canvasRef}
-            style={{ width:"100%", height:"100%", display:"block", cursor: cursorMap[tool] }}
+            style={{ width:"100%", height:"100%", display:"block", cursor:cursorMap[tool] }}
             onMouseDown={onStart} onMouseMove={onMove} onMouseUp={onEnd} onMouseLeave={onEnd}
             onTouchStart={onStart} onTouchMove={onMove} onTouchEnd={onEnd}
           />
-          {/* Shape preview overlay */}
           <canvas ref={previewRef}
             style={{ position:"absolute", inset:0, width:"100%", height:"100%", pointerEvents:"none" }}
           />
         </div>
 
         {/* Right color panel */}
-        <div style={{ width:56, background:"rgba(15,23,42,0.9)", borderLeft:"1px solid rgba(99,102,241,0.15)", display:"flex", flexDirection:"column", alignItems:"center", padding:"12px 0", gap:6, flexShrink:0 }}>
-          <div style={{ color:"#475569", fontSize:9, fontWeight:700, letterSpacing:"0.05em", marginBottom:4 }}>COLORS</div>
+        <div style={{ width:56, background:"rgba(15,23,42,0.9)", borderLeft:"1px solid rgba(99,102,241,0.15)", display:"flex", flexDirection:"column", alignItems:"center", padding:"12px 0", gap:6, flexShrink:0, overflowY:"auto" }}>
+          <div style={{ color:"#475569", fontSize:9, fontWeight:700, marginBottom:4 }}>COLORS</div>
           {PRESETS.map(c => (
-            <button key={c} onClick={() => setColor(c)} style={{
-              width:32, height:32, borderRadius:"50%", background:c, cursor:"pointer",
-              border: color===c ? "3px solid #818cf8" : "2px solid rgba(255,255,255,0.1)",
-              boxShadow: color===c ? "0 0 12px rgba(129,140,248,0.6)" : "none",
-              transition:"all 0.15s", flexShrink:0,
-            }} />
+            <button key={c} onClick={()=>setColor(c)} style={{ width:30, height:30, borderRadius:"50%", background:c, cursor:"pointer", border: color===c?"3px solid #818cf8":"2px solid rgba(255,255,255,0.1)", boxShadow: color===c?"0 0 10px rgba(129,140,248,0.6)":"none", transition:"all 0.15s", flexShrink:0 }} />
           ))}
-          <div style={{ width:32, height:1, background:"rgba(99,102,241,0.2)", margin:"4px 0" }} />
-          {/* Custom color picker */}
-          <div style={{ width:32, height:32, borderRadius:"50%", background:"conic-gradient(red,yellow,lime,cyan,blue,magenta,red)", cursor:"pointer", position:"relative", border:"2px solid rgba(255,255,255,0.15)", flexShrink:0 }}>
+          <div style={{ width:30, height:1, background:"rgba(99,102,241,0.2)", margin:"2px 0" }} />
+          <div style={{ width:30, height:30, borderRadius:"50%", background:"conic-gradient(red,yellow,lime,cyan,blue,magenta,red)", cursor:"pointer", position:"relative", border:"2px solid rgba(255,255,255,0.15)", flexShrink:0 }}>
             <input type="color" value={color} onChange={e=>setColor(e.target.value)}
               style={{ position:"absolute", inset:0, opacity:0, cursor:"pointer", width:"100%", height:"100%", borderRadius:"50%" }} />
           </div>
         </div>
       </div>
 
-      {/* Bottom color bar */}
-      <div style={{ height:44, background:"rgba(15,23,42,0.95)", borderTop:"1px solid rgba(99,102,241,0.15)", display:"flex", alignItems:"center", paddingLeft:68, gap:8, overflowX:"auto", flexShrink:0 }}>
-        <span style={{ color:"#475569", fontSize:11, fontWeight:700, flexShrink:0 }}>PALETTE</span>
+      {/* Bottom palette */}
+      <div style={{ height:44, background:"rgba(15,23,42,0.95)", borderTop:"1px solid rgba(99,102,241,0.15)", display:"flex", alignItems:"center", paddingLeft:12, gap:6, overflowX:"auto", flexShrink:0 }}>
+        <span style={{ color:"#475569", fontSize:10, fontWeight:700, flexShrink:0, marginRight:4 }}>PALETTE</span>
         {["#818cf8","#a78bfa","#c084fc","#f472b6","#fb923c","#fbbf24","#34d399","#22d3ee","#60a5fa","#f87171",
           "#ffffff","#cbd5e1","#94a3b8","#475569","#1e293b","#000000",
           "#ff6b6b","#ffd93d","#6bcb77","#4d96ff","#c77dff","#ff9a3c"].map(c=>(
-          <button key={c} onClick={()=>setColor(c)} style={{
-            width:24, height:24, borderRadius:6, background:c, cursor:"pointer", flexShrink:0,
-            border: color===c ? "2px solid #818cf8" : "1px solid rgba(255,255,255,0.1)",
-            boxShadow: color===c ? "0 0 8px rgba(129,140,248,0.5)" : "none",
-            transition:"all 0.1s",
-          }} />
+          <button key={c} onClick={()=>setColor(c)} style={{ width:24, height:24, borderRadius:6, background:c, cursor:"pointer", flexShrink:0, border: color===c?"2px solid #818cf8":"1px solid rgba(255,255,255,0.1)", boxShadow: color===c?"0 0 8px rgba(129,140,248,0.5)":"none", transition:"all 0.1s" }} />
         ))}
       </div>
 
@@ -822,6 +822,7 @@ function DrawPad({ onBack }) {
     </div>
   );
 }
+
 
 // ── SCORES / HELPERS ──────────────────────────────────────────────────────────
 const SCORE_MESSAGES = {
@@ -993,7 +994,7 @@ export default function App() {
   const scoreColor = result?getScoreColor(result.score):"#818cf8";
 
   // ── DRAW ─────────────────────────────────────────────────────────────────
-  if(screen==="draw") return <DrawPad onBack={()=>setScreen("splash")} />;
+  if(screen==="draw") return <><DrawPad onBack={()=>setScreen("splash")} /><MusicPlayer/></>;
 
   // ── SPLASH ────────────────────────────────────────────────────────────────
   if(screen==="splash") return(
@@ -1010,14 +1011,11 @@ export default function App() {
         <p style={{ color:"#6b7280", letterSpacing:"0.15em", fontSize:13, textTransform:"uppercase", marginBottom:8 }}>⭕ The Circle Challenge ⭕</p>
         <h1 style={{ fontSize:64, fontWeight:900, margin:0, lineHeight:1.1, background:"linear-gradient(135deg,#818cf8,#a78bfa,#c084fc)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>Draw</h1>
         <h2 style={{ fontSize:44, fontWeight:900, marginTop:0, marginBottom:48, background:"linear-gradient(135deg,#c084fc,#f472b6)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>Round</h2>
-        <div style={{ cursor:"pointer", marginBottom:24 }} onClick={()=>setScreen("game")}>
+        <div style={{ cursor:"pointer", marginBottom:32 }} onClick={()=>setScreen("game")}>
           <p style={{ fontSize:28, fontWeight:700, color:"#facc15", marginBottom:8, animation:"pulse 2s infinite" }}>CLICK TO PLAY</p>
           <p style={{ fontSize:24 }}>⭕</p>
         </div>
-        <div onClick={()=>setScreen("draw")} style={{ cursor:"pointer", marginBottom:32, display:"inline-flex", alignItems:"center", gap:8, background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.3)", borderRadius:12, padding:"10px 24px", transition:"all 0.2s" }}>
-          <span style={{ fontSize:18 }}>🎨</span>
-          <span style={{ color:"#a5b4fc", fontWeight:700, fontSize:15 }}>Open Studio</span>
-        </div>
+
         {(best>0||attempts>0)&&(
           <div style={{ background:"rgba(0,0,0,0.4)", border:"1px solid rgba(99,102,241,0.3)", borderRadius:16, padding:"12px 24px", display:"inline-block" }}>
             <p style={{ color:"#94a3b8", fontSize:12, marginBottom:4 }}>Your Record</p>
@@ -1046,18 +1044,18 @@ export default function App() {
             <div style={{ color:"#f1f5f9", fontWeight:700, fontSize:16, letterSpacing:"-0.02em" }}>DrawRound</div>
             <div style={{ color:"#64748b", fontSize:11 }}>Can you draw a perfect circle?</div>
           </div>
-          <button onClick={()=>{clear();setScreen("draw");}} style={{ marginLeft:12, background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:8, padding:"4px 12px", color:"#818cf8", fontSize:12, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", gap:6 }}>
-            🎨 Studio
-          </button>
         </div>
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-          <div style={{ display:"flex", gap:6 }}>
+          <div style={{ display:"flex", gap:6, alignItems:"center" }}>
             {[["Best",best],["Tries",attempts]].map(([label,val])=>(
               <div key={label} style={{ background:"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:8, padding:"4px 10px", textAlign:"center" }}>
                 <div style={{ color:"#818cf8", fontSize:10, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase" }}>{label}</div>
                 <div style={{ color:"#f1f5f9", fontSize:14, fontWeight:700 }}>{val}</div>
               </div>
             ))}
+            <button onClick={()=>{clear();setScreen("draw");}} style={{ background:"linear-gradient(135deg,rgba(99,102,241,0.2),rgba(139,92,246,0.2))", border:"1px solid rgba(99,102,241,0.4)", borderRadius:8, padding:"5px 14px", color:"#a5b4fc", fontSize:12, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", gap:6, height:36, boxShadow:"0 0 12px rgba(99,102,241,0.15)" }}>
+              🎨 <span>Studio</span>
+            </button>
           </div>
           <button onClick={()=>setShowGrid(g=>!g)} style={{ background:showGrid?"rgba(99,102,241,0.2)":"rgba(51,65,85,0.5)", border:`1px solid ${showGrid?"rgba(99,102,241,0.4)":"rgba(71,85,105,0.4)"}`, color:showGrid?"#818cf8":"#64748b", borderRadius:8, padding:"6px 12px", fontSize:12, cursor:"pointer", fontWeight:600 }}>{showGrid?"Grid On":"Grid Off"}</button>
           <button onClick={clear} style={{ background:"rgba(99,102,241,0.15)", border:"1px solid rgba(99,102,241,0.3)", color:"#a5b4fc", borderRadius:8, padding:"6px 14px", fontSize:12, cursor:"pointer", fontWeight:600 }}>Clear</button>
