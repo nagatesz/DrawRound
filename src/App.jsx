@@ -7,7 +7,7 @@ const PLAYLIST = [
 
 const FIRE_PLAYLIST = [
   { title: "Heart on Ice", artist: "Rod Wave",     src: "/music/Heart on Ice.mp3", cover: "/covers/HeartOnIce.jpg" },
-  { title: "KK Anthem",    artist: "Ryan Baldwin", src: "/music/KK Anthem.mp3",    cover: "/covers/KKAnthem.jpg"   },
+  { title: "KK Anthem",    artist: "Ryan Baldwin", src: "/music/KKAnthem.mp3",      cover: "/covers/KKAnthem.jpg"   },
   { title: "Shot Callin",  artist: "NBA YoungBoy", src: "/music/ShotCallin.mp3",   cover: "/covers/ShotCallin.jpg" },
 ];
 
