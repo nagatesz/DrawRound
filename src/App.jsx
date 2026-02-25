@@ -400,28 +400,99 @@ function MusicPlayer() {
 }
 
 // ── SCORES / HELPERS ──────────────────────────────────────────────────────────
-const SCORES = [
-  [95, "Perfect circle! You're built different. ✨"],
-  [85, "Almost perfect! Elite stuff. 🎯"],
-  [75, "Pretty circular! Not bad at all. 👏"],
-  [60, "Decent effort. Keep practicing. 💪"],
-  [40, "Uh... try drawing slower? 🖊️"],
-  [20, "Give it another shot. Practice makes perfect. 🔄"],
-  [0,  "Bro that's just abstract art. 🎨"],
-];
-const getMessage    = score => { for (const [t,m] of SCORES) if (score>=t) return m; return SCORES[SCORES.length-1][1]; };
+const SCORE_MESSAGES = {
+  perfect: [
+    "PERFECT. You are literally built different. 🏆",
+    "Bro drew a circle better than a compass. Insane. ✨",
+    "Are you even human? That's a perfect circle. 🤖",
+    "Geometry teachers hate you. Flawless. 👑",
+    "That circle just made Euclid cry tears of joy. 🔵",
+  ],
+  great: [
+    "Almost perfect! Just a tiny wobble. Elite. 🎯",
+    "That's really clean. One more try for perfection? 🔥",
+    "Really solid circle. You've done this before huh. 👏",
+    "Top tier. Like 98th percentile circle drawer. 💪",
+    "That's genuinely impressive. Don't let it go to your head. 😤",
+  ],
+  good: [
+    "Pretty decent. Your mom would hang that on the fridge. 🖼️",
+    "Not bad! A little wobbly but respectable. 👍",
+    "That's a circle. Technically. We'll allow it. ✅",
+    "Solid effort. A compass would be nervous. 📐",
+    "You're getting there. Keep going. 🔄",
+  ],
+  okay: [
+    "That's... something. Keep practicing I guess. 😐",
+    "Bro it's giving oval more than circle tbh. 🥚",
+    "Your circle has commitment issues. It can't decide what shape to be. 💀",
+    "A for effort. D for execution. 📉",
+    "That circle went through it. Therapy might help. 🛋️",
+  ],
+  bad: [
+    "Was that a circle or a cry for help? 😭",
+    "My guy drew a potato and called it a circle. 🥔",
+    "Bro your hand was shaking like a phone on vibrate. 📳",
+    "That circle has been through some things. It shows. 💔",
+    "Oval. Egg. Blob. But not a circle. ❌",
+    "A kindergartner just saw this and felt better about themselves. 🧒",
+  ],
+  terrible: [
+    "Bro that's just abstract art. Put it in a museum. 🎨",
+    "What WAS that? Genuinely asking. 👀",
+    "Your circle needs a lawyer because that's criminal. ⚖️",
+    "My guy drew a Dorito and submitted it as a circle. 🔺",
+    "That shape doesn't even have a name. Mathematicians are concerned. 📊",
+    "I've seen better circles drawn with a broken pencil by a toddler. 👶",
+    "Are you okay? Do you need someone to talk to? 😟",
+    "That's not a circle. That's not anything. That's chaos. 🌀",
+  ],
+};
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const getMessage = score => {
+  if (score >= 95) return pick(SCORE_MESSAGES.perfect);
+  if (score >= 85) return pick(SCORE_MESSAGES.great);
+  if (score >= 70) return pick(SCORE_MESSAGES.good);
+  if (score >= 50) return pick(SCORE_MESSAGES.okay);
+  if (score >= 30) return pick(SCORE_MESSAGES.bad);
+  return pick(SCORE_MESSAGES.terrible);
+};
 const getScoreColor = score => score>=85?"#22c55e":score>=65?"#f59e0b":score>=40?"#f97316":"#ef4444";
 
 function evaluateCircle(pts) {
-  if (pts.length < 10) return null;
+  if (pts.length < 20) return null;
+
+  // Find centroid
   const cx = pts.reduce((a,p)=>a+p.x,0)/pts.length;
   const cy = pts.reduce((a,p)=>a+p.y,0)/pts.length;
+
+  // Radii from centroid
   const radii = pts.map(p=>Math.hypot(p.x-cx,p.y-cy));
   const avgR  = radii.reduce((a,r)=>a+r,0)/radii.length;
-  const variance = Math.sqrt(radii.reduce((a,r)=>a+(r-avgR)**2,0)/radii.length);
-  const isClosed = Math.hypot(pts[pts.length-1].x-pts[0].x, pts[pts.length-1].y-pts[0].y) < avgR*0.25;
-  const varScore = Math.max(0, 1-variance/(avgR*0.5));
-  const score = Math.round(Math.min(100,Math.max(0,varScore*0.65+(isClosed?1:0.4)*0.35))*100);
+
+  // Penalize if circle is tiny (too easy to fake)
+  if (avgR < 30) return null;
+
+  // Radius variance — tighter tolerance
+  const stdDev = Math.sqrt(radii.reduce((a,r)=>a+(r-avgR)**2,0)/radii.length);
+  const varScore = Math.max(0, 1 - (stdDev / (avgR * 0.35)));
+
+  // Closure — start and end points should be close
+  const closeDist = Math.hypot(pts[pts.length-1].x-pts[0].x, pts[pts.length-1].y-pts[0].y);
+  const isClosed = closeDist < avgR * 0.2; // stricter than before
+  const closeScore = isClosed ? 1 : Math.max(0, 1 - closeDist / (avgR * 0.8));
+
+  // Angular coverage — should cover close to 360 degrees
+  const angles = pts.map(p => Math.atan2(p.y-cy, p.x-cx));
+  let coverage = 0;
+  const buckets = new Array(36).fill(false);
+  angles.forEach(a => { buckets[Math.floor(((a + Math.PI) / (2*Math.PI)) * 36) % 36] = true; });
+  coverage = buckets.filter(Boolean).length / 36;
+
+  // Weighted final score — harder to get 90+
+  const raw = varScore * 0.55 + closeScore * 0.25 + coverage * 0.20;
+  const score = Math.round(Math.min(100, Math.max(0, raw * 100)));
+
   return { score, center:{x:cx,y:cy}, radius:avgR };
 }
 
