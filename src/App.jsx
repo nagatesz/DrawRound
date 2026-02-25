@@ -1,14 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 
 const PLAYLIST = [
-  { title: "CandyLand", artist: "DJ Aldo", src: "/music/CandyLand.mp3" },
-  { title: "Sky High",  artist: "DJ Aldo", src: "/music/SkyHigh.mp3"   },
+  { title: "CandyLand", artist: "DJ Aldo", src: "/music/CandyLand.mp3", cover: "/covers/CandyLand.jpg" },
+  { title: "Sky High",  artist: "DJ Aldo", src: "/music/SkyHigh.mp3",   cover: "/covers/SkyHigh.jpg"   },
 ];
 
 const FIRE_PLAYLIST = [
-  { title: "Heart on Ice", artist: "Rod Wave",      src: "/music/Heart on Ice.mp3" },
-  { title: "KK Anthem",    artist: "Ryan Baldwin",  src: "/music/KK Anthem.mp3"    },
-  { title: "Shot Callin",  artist: "NBA YoungBoy",  src: "/music/ShotCallin.mp3"   },
+  { title: "Heart on Ice", artist: "Rod Wave",     src: "/music/Heart on Ice.mp3", cover: "/covers/HeartOnIce.jpg" },
+  { title: "KK Anthem",    artist: "Ryan Baldwin", src: "/music/KK Anthem.mp3",    cover: "/covers/KKAnthem.jpg"   },
+  { title: "Shot Callin",  artist: "NBA YoungBoy", src: "/music/ShotCallin.mp3",   cover: "/covers/ShotCallin.jpg" },
 ];
 
 const SECRET_CODE = "6969"; // Temporary code
@@ -159,8 +159,12 @@ function MusicPlayer() {
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
-    // Don't set src here — avoids browser loading spinner on cursor
-    // src is set at play-time in toggle() and goTo()
+    // Set src and load metadata so duration shows, but don't play
+    const newSrc = activePlaylist[trackIdx].src;
+    if (!a.src || !a.src.endsWith(newSrc)) {
+      a.src = newSrc;
+      a.load();
+    }
     a.volume = volume;
     setProgress(0);
     setDuration(0);
@@ -292,11 +296,22 @@ function MusicPlayer() {
               <button onClick={() => setExpanded(false)} style={{ background:"none", border:"none", color:"#475569", cursor:"pointer", fontSize:18, lineHeight:1 }}>✕</button>
             </div>
 
-            {/* vinyl art */}
-            <div style={{ width:"100%", aspectRatio:"1", borderRadius:16, background:"linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.08))", border:"1px solid rgba(99,102,241,0.2)", display:"flex", alignItems:"center", justifyContent:"center", marginBottom:14, position:"relative", overflow:"hidden" }}>
-              <div style={{ width:72, height:72, borderRadius:"50%", border:"2px solid rgba(99,102,241,0.4)", display:"flex", alignItems:"center", justifyContent:"center", animation: playing ? "spin 4s linear infinite" : "none" }}>
-                <div style={{ width:44, height:44, borderRadius:"50%", border:"2px solid rgba(99,102,241,0.25)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                  <div style={{ width:10, height:10, borderRadius:"50%", background:"#6366f1" }} />
+            {/* cover art */}
+            <div style={{ width:"100%", aspectRatio:"1", borderRadius:16, overflow:"hidden", marginBottom:14, position:"relative", background:"linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.08))", border:"1px solid rgba(99,102,241,0.2)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+              {current.cover ? (
+                <img
+                  src={current.cover}
+                  alt={current.title}
+                  style={{ width:"100%", height:"100%", objectFit:"cover", display:"block", animation: playing ? "subtlePulse 4s ease-in-out infinite" : "none" }}
+                  onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }}
+                />
+              ) : null}
+              {/* Fallback vinyl shown when no cover or image fails */}
+              <div style={{ display: current.cover ? "none" : "flex", width:"100%", height:"100%", alignItems:"center", justifyContent:"center" }}>
+                <div style={{ width:72, height:72, borderRadius:"50%", border:"2px solid rgba(99,102,241,0.4)", display:"flex", alignItems:"center", justifyContent:"center", animation: playing ? "spin 4s linear infinite" : "none" }}>
+                  <div style={{ width:44, height:44, borderRadius:"50%", border:"2px solid rgba(99,102,241,0.25)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    <div style={{ width:10, height:10, borderRadius:"50%", background:"#6366f1" }} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -374,6 +389,7 @@ function MusicPlayer() {
           @keyframes bar1 { from{height:12px} to{height:5px}  }
           @keyframes bar2 { from{height:7px}  to{height:14px} }
           @keyframes spin  { to{transform:rotate(360deg)} }
+          @keyframes subtlePulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.03)} }
           html, body { cursor: default !important; }
         *, *:focus, *:active { outline: none !important; -webkit-tap-highlight-color: transparent !important; }
           html, body { cursor: default !important; }
