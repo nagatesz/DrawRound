@@ -1,15 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 
 const PLAYLIST = [
-  { title: "CandyLand",   artist: "DJ Aldo",      src: "/music/CandyLand.mp3"  },
-  { title: "Sky High",    artist: "DJ Aldo",      src: "/music/SkyHigh.mp3"    },
-  { title: "Shot Callin", artist: "NBA YoungBoy", src: "/music/ShotCallin.mp3" },
+  { title: "CandyLand", artist: "DJ Aldo", src: "/music/CandyLand.mp3" },
+  { title: "Sky High",  artist: "DJ Aldo", src: "/music/SkyHigh.mp3"   },
 ];
 
 const FIRE_PLAYLIST = [
-  { title: "Fire Song 1", artist: "Artist Name", src: "/music/fire1.mp3" },
-  { title: "Fire Song 2", artist: "Artist Name", src: "/music/fire2.mp3" },
-  { title: "Fire Song 3", artist: "Artist Name", src: "/music/fire3.mp3" },
+  { title: "Heart on Ice", artist: "Rod Wave",      src: "/music/Heart on Ice.mp3" },
+  { title: "KK Anthem",    artist: "Ryan Baldwin",  src: "/music/KK Anthem.mp3"    },
+  { title: "Shot Callin",  artist: "NBA YoungBoy",  src: "/music/ShotCallin.mp3"   },
 ];
 
 const SECRET_CODE = "6969"; // Temporary code
