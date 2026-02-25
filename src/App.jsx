@@ -713,7 +713,7 @@ function DrawPad({ onBack }) {
       {/* Header */}
       <div style={{ padding:"10px 16px", borderBottom:"1px solid rgba(99,102,241,0.2)", display:"flex", alignItems:"center", justifyContent:"space-between", background:"rgba(15,23,42,0.95)", backdropFilter:"blur(8px)", flexShrink:0, zIndex:20 }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <div onClick={onBack} style={{ cursor:"pointer", width:32, height:32, borderRadius:"50%", border:"2px solid #6366f1", display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <div onClick={onBack} style={{ cursor:"pointer", width:32, height:32, borderRadius:"50%", border:"2px solid #6366f1", display:"flex", alignItems:"center", justifyContent:"center" }} title="Back to circle game">
             <div style={{ width:18, height:18, borderRadius:"50%", border:"2px solid #818cf8" }}/>
           </div>
           <div>
@@ -795,28 +795,39 @@ function DrawPad({ onBack }) {
         </div>
 
         {/* Right color panel */}
-        <div style={{ width:56, background:"rgba(15,23,42,0.9)", borderLeft:"1px solid rgba(99,102,241,0.15)", display:"flex", flexDirection:"column", alignItems:"center", padding:"12px 0", gap:6, flexShrink:0, overflowY:"auto" }}>
-          <div style={{ color:"#475569", fontSize:9, fontWeight:700, marginBottom:4 }}>COLORS</div>
-          {PRESETS.map(c => (
-            <button key={c} onClick={()=>setColor(c)} style={{ width:30, height:30, borderRadius:"50%", background:c, cursor:"pointer", border: color===c?"3px solid #818cf8":"2px solid rgba(255,255,255,0.1)", boxShadow: color===c?"0 0 10px rgba(129,140,248,0.6)":"none", transition:"all 0.15s", flexShrink:0 }} />
-          ))}
-          <div style={{ width:30, height:1, background:"rgba(99,102,241,0.2)", margin:"2px 0" }} />
-          <div style={{ width:30, height:30, borderRadius:"50%", background:"conic-gradient(red,yellow,lime,cyan,blue,magenta,red)", cursor:"pointer", position:"relative", border:"2px solid rgba(255,255,255,0.15)", flexShrink:0 }}>
+        <div style={{ width:60, background:"rgba(15,23,42,0.9)", borderLeft:"1px solid rgba(99,102,241,0.15)", display:"flex", flexDirection:"column", alignItems:"center", padding:"10px 0", gap:5, flexShrink:0, overflowY:"auto" }}>
+          <div style={{ color:"#475569", fontSize:9, fontWeight:700, letterSpacing:"0.08em", marginBottom:2 }}>COLOR</div>
+
+          {/* Current color display */}
+          <div style={{ width:36, height:36, borderRadius:10, background:color, border:"2px solid rgba(255,255,255,0.25)", boxShadow:`0 0 14px ${color}88`, flexShrink:0, position:"relative", cursor:"pointer" }}>
             <input type="color" value={color} onChange={e=>setColor(e.target.value)}
-              style={{ position:"absolute", inset:0, opacity:0, cursor:"pointer", width:"100%", height:"100%", borderRadius:"50%" }} />
+              style={{ position:"absolute", inset:0, opacity:0, cursor:"pointer", width:"100%", height:"100%" }} />
+          </div>
+
+          <div style={{ width:36, height:1, background:"rgba(99,102,241,0.2)", margin:"2px 0" }} />
+
+          {/* Preset swatches */}
+          {PRESETS.map(c => (
+            <button key={c} onClick={()=>setColor(c)} style={{
+              width:28, height:28, borderRadius:8, background:c, cursor:"pointer", flexShrink:0,
+              border: color===c ? "2px solid #818cf8" : "1px solid rgba(255,255,255,0.08)",
+              boxShadow: color===c ? `0 0 10px ${c}99` : "none",
+              transition:"all 0.15s",
+            }} />
+          ))}
+
+          <div style={{ width:36, height:1, background:"rgba(99,102,241,0.2)", margin:"2px 0" }} />
+
+          {/* Custom color picker — styled as a clean gradient button matching our UI */}
+          <div style={{ position:"relative", width:28, height:28, borderRadius:8, overflow:"hidden", flexShrink:0, border:"1px solid rgba(99,102,241,0.3)", cursor:"pointer" }}>
+            <div style={{ position:"absolute", inset:0, background:"linear-gradient(135deg,#f87171,#fbbf24,#34d399,#60a5fa,#818cf8,#f472b6)", opacity:0.9 }} />
+            <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, pointerEvents:"none" }}>+</div>
+            <input type="color" value={color} onChange={e=>setColor(e.target.value)}
+              style={{ position:"absolute", inset:0, opacity:0, cursor:"pointer", width:"100%", height:"100%" }} />
           </div>
         </div>
       </div>
 
-      {/* Bottom palette */}
-      <div style={{ height:44, background:"rgba(15,23,42,0.95)", borderTop:"1px solid rgba(99,102,241,0.15)", display:"flex", alignItems:"center", paddingLeft:12, gap:6, overflowX:"auto", flexShrink:0 }}>
-        <span style={{ color:"#475569", fontSize:10, fontWeight:700, flexShrink:0, marginRight:4 }}>PALETTE</span>
-        {["#818cf8","#a78bfa","#c084fc","#f472b6","#fb923c","#fbbf24","#34d399","#22d3ee","#60a5fa","#f87171",
-          "#ffffff","#cbd5e1","#94a3b8","#475569","#1e293b","#000000",
-          "#ff6b6b","#ffd93d","#6bcb77","#4d96ff","#c77dff","#ff9a3c"].map(c=>(
-          <button key={c} onClick={()=>setColor(c)} style={{ width:24, height:24, borderRadius:6, background:c, cursor:"pointer", flexShrink:0, border: color===c?"2px solid #818cf8":"1px solid rgba(255,255,255,0.1)", boxShadow: color===c?"0 0 8px rgba(129,140,248,0.5)":"none", transition:"all 0.1s" }} />
-        ))}
-      </div>
 
       <MusicPlayer />
     </div>
@@ -924,7 +935,7 @@ function evaluateCircle(pts) {
 const Credits = () => (
   <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6, userSelect:"none" }}>
     <span style={{ fontSize:12, color:"#6b7280" }}>Built by</span>
-    <span style={{ fontSize:12, fontWeight:900, letterSpacing:"0.1em", background:"linear-gradient(135deg,#cc44ff,#aa00ff,#dd88ff)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", filter:"drop-shadow(0 0 6px #cc44ff)" }}>nog</span>
+    <a href="https://github.com/nagatesz/" target="_blank" rel="noopener noreferrer" style={{ textDecoration:"none", fontSize:12, fontWeight:900, letterSpacing:"0.1em", background:"linear-gradient(135deg,#cc44ff,#aa00ff,#dd88ff)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", filter:"drop-shadow(0 0 6px #cc44ff)", cursor:"pointer" }}>nog</a>
     <span style={{ color:"#4b5563", fontSize:12 }}>&amp;</span>
     <span style={{ fontSize:12, fontWeight:900, background:"linear-gradient(135deg,#ff8c00,#ff6b35,#ffb347)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", filter:"drop-shadow(0 0 5px #ff6b35)" }}>Claude Sonnet 4.6</span>
   </div>
@@ -994,7 +1005,7 @@ export default function App() {
   const scoreColor = result?getScoreColor(result.score):"#818cf8";
 
   // ── DRAW ─────────────────────────────────────────────────────────────────
-  if(screen==="draw") return <><DrawPad onBack={()=>setScreen("splash")} /><MusicPlayer/></>;
+  if(screen==="draw") return <><DrawPad onBack={()=>setScreen("game")} /><MusicPlayer/></>;
 
   // ── SPLASH ────────────────────────────────────────────────────────────────
   if(screen==="splash") return(
@@ -1037,7 +1048,7 @@ export default function App() {
     <div style={{ width:"100vw", height:"100vh", background:"#0f172a", display:"flex", flexDirection:"column", fontFamily:"'Inter',system-ui,sans-serif", overflow:"hidden" }}>
       <div style={{ padding:"12px 20px", borderBottom:"1px solid rgba(99,102,241,0.2)", display:"flex", alignItems:"center", justifyContent:"space-between", background:"rgba(15,23,42,0.95)", backdropFilter:"blur(8px)", flexShrink:0, zIndex:10 }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <div onClick={()=>{clear();setScreen("splash");}} style={{ cursor:"pointer", width:32, height:32, borderRadius:"50%", border:"2px solid #6366f1", display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <div onClick={()=>{clear();setScreen("game");}} style={{ cursor:"pointer", width:32, height:32, borderRadius:"50%", border:"2px solid #6366f1", display:"flex", alignItems:"center", justifyContent:"center" }}>
             <div style={{ width:18, height:18, borderRadius:"50%", border:"2px solid #818cf8" }}/>
           </div>
           <div>
