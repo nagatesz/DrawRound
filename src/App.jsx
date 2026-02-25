@@ -93,23 +93,54 @@ function Keypad({ onClose, onUnlock }) {
   );
 }
 
+// ── COVER ART ─────────────────────────────────────────────────────────────────
+function CoverArt({ track, playing }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  // Reset failed state when track changes
+  useEffect(() => setImgFailed(false), [track]);
+
+  const showImg = track.cover && !imgFailed;
+
+  return (
+    <div style={{ width:"100%", aspectRatio:"1/1", borderRadius:16, overflow:"hidden", marginBottom:14, position:"relative", background:"linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.08))", border:"1px solid rgba(99,102,241,0.2)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+      {showImg ? (
+        <img
+          src={track.cover}
+          alt={track.title}
+          onError={() => setImgFailed(true)}
+          style={{ width:"100%", height:"100%", objectFit:"cover", display:"block", animation: playing ? "subtlePulse 4s ease-in-out infinite" : "none" }}
+        />
+      ) : (
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"center", width:"100%", height:"100%" }}>
+          <div style={{ width:72, height:72, borderRadius:"50%", border:"2px solid rgba(99,102,241,0.4)", display:"flex", alignItems:"center", justifyContent:"center", animation: playing ? "spin 4s linear infinite" : "none" }}>
+            <div style={{ width:44, height:44, borderRadius:"50%", border:"2px solid rgba(99,102,241,0.25)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <div style={{ width:10, height:10, borderRadius:"50%", background:"#6366f1" }} />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── MUSIC PLAYER ─────────────────────────────────────────────────────────────
 function MusicPlayer() {
-  const audioRef = useRef(null);
-  const getAudio = () => {
-    if (!audioRef.current) {
-      const a = new Audio();
-      a.preload = "none";
-      audioRef.current = a;
-    }
-    return audioRef.current;
-  };
+  const audioRef  = useRef(null);
+
+  // Create audio element once on mount — no src yet so no network request
+  useEffect(() => {
+    const a = document.createElement("audio");
+    a.preload = "none";
+    audioRef.current = a;
+    return () => { a.pause(); a.src = ""; };
+  }, []);
+
   const [fireUnlocked, setFireUnlocked] = useState(() => {
     try { return localStorage.getItem("drawround_fire") === "true"; } catch { return false; }
   });
   const [showKeypad, setShowKeypad] = useState(false);
   const [clickSequence, setClickSequence] = useState([]);
-  const [sequenceTimer, setSequenceTimer] = useState(null);
+  const sequenceTimerRef = useRef(null);
 
   const activePlaylist = fireUnlocked ? [...PLAYLIST, ...FIRE_PLAYLIST] : PLAYLIST;
   const [trackIdx, setTrackIdx] = useState(0);
@@ -120,33 +151,62 @@ function MusicPlayer() {
   const [expanded, setExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState("main");
   const activeTabRef = useRef("main");
+  const trackIdxRef  = useRef(0);
+
   const setTab = (tab) => { activeTabRef.current = tab; setActiveTab(tab); };
+  const setTrack = (idx) => { trackIdxRef.current = idx; setTrackIdx(idx); };
+
   const current = activePlaylist[trackIdx];
   const pct = duration ? (progress / duration) * 100 : 0;
   const fmt = s => isNaN(s) ? "0:00" : `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}`;
 
-  // Handle secret click sequence
-  const handleCornerClick = (corner) => {
-    const newSequence = [...clickSequence, corner];
-    setClickSequence(newSequence);
-
-    // Clear existing timer
-    if (sequenceTimer) clearTimeout(sequenceTimer);
-
-    // Check if sequence is complete
-    if (newSequence.length === 3) {
-      if (newSequence[0] === "tl" && newSequence[1] === "br" && newSequence[2] === "bl") {
-        setShowKeypad(true);
+  // Attach persistent event listeners once audio element exists
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    const onTime = () => setProgress(a.currentTime);
+    const onMeta = () => setDuration(a.duration);
+    const onEnd  = () => {
+      const tab  = activeTabRef.current;
+      const list = tab === "fire" ? FIRE_PLAYLIST : PLAYLIST;
+      const base = tab === "fire" ? PLAYLIST.length : 0;
+      const cur  = trackIdxRef.current;
+      const last = base + list.length - 1;
+      if (cur >= last) {
+        setPlaying(false);
+      } else {
+        const next = cur + 1;
+        setTrack(next);
+        const fullList = [...PLAYLIST, ...FIRE_PLAYLIST];
+        a.src = fullList[next].src;
+        a.load();
+        a.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
       }
+    };
+    a.addEventListener("timeupdate",     onTime);
+    a.addEventListener("loadedmetadata", onMeta);
+    a.addEventListener("ended",          onEnd);
+    return () => {
+      a.removeEventListener("timeupdate",     onTime);
+      a.removeEventListener("loadedmetadata", onMeta);
+      a.removeEventListener("ended",          onEnd);
+    };
+  }, [fireUnlocked]); // re-attach only if fire unlocked (activePlaylist changes)
+
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.volume = volume;
+  }, [volume]);
+
+  // Handle secret corner click sequence
+  const handleCornerClick = (corner) => {
+    const newSeq = [...clickSequence, corner];
+    setClickSequence(newSeq);
+    if (sequenceTimerRef.current) clearTimeout(sequenceTimerRef.current);
+    if (newSeq.length === 3) {
+      if (newSeq[0] === "tl" && newSeq[1] === "br" && newSeq[2] === "bl") setShowKeypad(true);
       setClickSequence([]);
-      setSequenceTimer(null);
     } else {
-      // Set new timer to reset sequence after 3 seconds
-      const timer = setTimeout(() => {
-        setClickSequence([]);
-        setSequenceTimer(null);
-      }, 3000);
-      setSequenceTimer(timer);
+      sequenceTimerRef.current = setTimeout(() => setClickSequence([]), 3000);
     }
   };
 
@@ -155,84 +215,41 @@ function MusicPlayer() {
     try { localStorage.setItem("drawround_fire", "true"); } catch {}
   };
 
-  // wire up audio events whenever track changes
-  useEffect(() => {
+  const toggle = () => {
     const a = audioRef.current;
     if (!a) return;
-    // Set src and load metadata so duration shows, but don't play
-    const newSrc = activePlaylist[trackIdx].src;
-    if (!a.src || !a.src.endsWith(newSrc)) {
-      a.src = newSrc;
-      a.load();
-    }
-    a.volume = volume;
-    setProgress(0);
-    setDuration(0);
-    const onTime = () => setProgress(a.currentTime);
-    const onMeta = () => setDuration(a.duration);
-    const onEnd  = () => {
-      const tab = activeTabRef.current;
-      const currentList = tab === "fire" ? FIRE_PLAYLIST : PLAYLIST;
-      const startIdx    = tab === "fire" ? PLAYLIST.length : 0;
-      const endIdx      = startIdx + currentList.length - 1;
-      if (trackIdx >= endIdx) {
-        setPlaying(false);
-      } else {
-        setTrackIdx(trackIdx + 1);
-      }
-    };
-    a.addEventListener("timeupdate",      onTime);
-    a.addEventListener("loadedmetadata",  onMeta);
-    a.addEventListener("ended",           onEnd);
-    return () => {
-      a.removeEventListener("timeupdate",     onTime);
-      a.removeEventListener("loadedmetadata", onMeta);
-      a.removeEventListener("ended",          onEnd);
-    };
-  }, [trackIdx, activePlaylist, activeTab]);
-
-  useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = volume;
-  }, [volume]);
-
-  const toggle = () => {
-    const a = getAudio();
     if (playing) {
       a.pause();
       setPlaying(false);
     } else {
-      // Set src at play-time so browser never auto-loads (no cursor spinner)
-      if (!a.src || !a.src.endsWith(activePlaylist[trackIdx].src)) {
+      if (!a.src || a.src === window.location.href) {
         a.src = activePlaylist[trackIdx].src;
+        a.load();
       }
-      const p = a.play();
-      if (p !== undefined) {
-        p.then(() => setPlaying(true)).catch(() => setPlaying(false));
-      } else {
-        setPlaying(true);
-      }
+      a.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
     }
   };
 
-  const goTo = idx => {
+  const goTo = (idx) => {
+    const a = audioRef.current;
+    if (!a) return;
     const wasPlaying = playing;
+    a.pause();
     setPlaying(false);
-    setTrackIdx(idx);
-    setTimeout(() => {
-      const a = getAudio();
-      a.src = activePlaylist[idx].src;
-      a.load();
-      if (wasPlaying) {
-        const p = a.play();
-        if (p !== undefined) p.then(() => setPlaying(true)).catch(() => {});
-        else setPlaying(true);
-      }
-    }, 100);
+    setTrack(idx);
+    setProgress(0);
+    setDuration(0);
+    a.src = activePlaylist[idx].src;
+    a.load();
+    if (wasPlaying) {
+      a.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+    }
   };
 
   const next = () => goTo((trackIdx + 1) % activePlaylist.length);
   const prev = () => {
-    if (progress > 3) { audioRef.current.currentTime = 0; }
+    const a = audioRef.current;
+    if (a && progress > 3) { a.currentTime = 0; }
     else goTo((trackIdx - 1 + activePlaylist.length) % activePlaylist.length);
   };
 
@@ -247,10 +264,10 @@ function MusicPlayer() {
 
   return (
     <>
-      {/* Invisible corner click zones — cursor: "default" so nothing looks clickable */}
-      <div onClick={() => handleCornerClick("tl")} style={{ position: "fixed", top: 0, left: 0, width: 80, height: 80, zIndex: 99, cursor: "default" }} />
-      <div onClick={() => handleCornerClick("br")} style={{ position: "fixed", bottom: 0, right: 0, width: 80, height: 80, zIndex: 99, cursor: "default" }} />
-      <div onClick={() => handleCornerClick("bl")} style={{ position: "fixed", bottom: 0, left: 0, width: 80, height: 80, zIndex: 99, cursor: "default" }} />
+      {/* Invisible corner click zones */}
+      <div onClick={() => handleCornerClick("tl")} style={{ position:"fixed", top:0, left:0, width:80, height:80, zIndex:99, cursor:"default" }} />
+      <div onClick={() => handleCornerClick("br")} style={{ position:"fixed", bottom:0, right:0, width:80, height:80, zIndex:99, cursor:"default" }} />
+      <div onClick={() => handleCornerClick("bl")} style={{ position:"fixed", bottom:0, left:0, width:80, height:80, zIndex:99, cursor:"default" }} />
 
       {showKeypad && <Keypad onClose={() => setShowKeypad(false)} onUnlock={handleUnlock} />}
 
@@ -259,9 +276,8 @@ function MusicPlayer() {
         {/* collapsed pill */}
         {!expanded && (
           <div onClick={() => setExpanded(true)} style={{ display:"flex", alignItems:"center", gap:10, background:"rgba(15,23,42,0.95)", border:"1px solid rgba(99,102,241,0.4)", borderRadius:999, padding:"10px 16px 10px 12px", cursor:"pointer", backdropFilter:"blur(16px)", boxShadow:"0 4px 24px rgba(99,102,241,0.2)", minWidth:220 }}>
-            {/* EQ bars */}
             <div style={{ display:"flex", alignItems:"flex-end", gap:2, height:20, width:20, flexShrink:0 }}>
-              {[14,8,12].map((h,i) => (
+              {[0,1,2].map(i => (
                 <div key={i} style={{ flex:1, borderRadius:2, background: playing ? "#818cf8" : "#374151", height: playing ? undefined : 4, animation: playing ? `bar${i} 0.8s ease-in-out ${i*0.15}s infinite alternate` : "none" }} />
               ))}
             </div>
@@ -297,24 +313,7 @@ function MusicPlayer() {
             </div>
 
             {/* cover art */}
-            <div style={{ width:"100%", aspectRatio:"1", borderRadius:16, overflow:"hidden", marginBottom:14, position:"relative", background:"linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.08))", border:"1px solid rgba(99,102,241,0.2)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-              {current.cover ? (
-                <img
-                  src={current.cover}
-                  alt={current.title}
-                  style={{ width:"100%", height:"100%", objectFit:"cover", display:"block", animation: playing ? "subtlePulse 4s ease-in-out infinite" : "none" }}
-                  onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }}
-                />
-              ) : null}
-              {/* Fallback vinyl shown when no cover or image fails */}
-              <div style={{ display: current.cover ? "none" : "flex", width:"100%", height:"100%", alignItems:"center", justifyContent:"center" }}>
-                <div style={{ width:72, height:72, borderRadius:"50%", border:"2px solid rgba(99,102,241,0.4)", display:"flex", alignItems:"center", justifyContent:"center", animation: playing ? "spin 4s linear infinite" : "none" }}>
-                  <div style={{ width:44, height:44, borderRadius:"50%", border:"2px solid rgba(99,102,241,0.25)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                    <div style={{ width:10, height:10, borderRadius:"50%", background:"#6366f1" }} />
-                  </div>
-                </div>
-              </div>
-            </div>
+            <CoverArt track={current} playing={playing} />
 
             {/* title */}
             <div style={{ textAlign:"center", marginBottom:14 }}>
@@ -333,11 +332,11 @@ function MusicPlayer() {
 
             {/* controls */}
             <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:16, marginBottom:16 }}>
-              <button onClick={prev} style={s.btn} title="Prev / Restart">⏮</button>
+              <button onClick={prev} style={s.btn}>⏮</button>
               <button onClick={toggle} style={{ width:52, height:52, borderRadius:"50%", background:"linear-gradient(135deg,#6366f1,#8b5cf6)", border:"none", color:"#fff", cursor:"pointer", fontSize:20, display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 0 20px rgba(99,102,241,0.5)" }}>
                 {playing ? "⏸" : "▶"}
               </button>
-              <button onClick={next} style={s.btn} title="Next">⏭</button>
+              <button onClick={next} style={s.btn}>⏭</button>
             </div>
 
             {/* volume */}
@@ -348,9 +347,8 @@ function MusicPlayer() {
                 style={{ flex:1, accentColor:"#6366f1", cursor:"pointer" }} />
             </div>
 
-            {/* playlist */}
+            {/* playlist tabs */}
             <div style={{ borderTop:"1px solid rgba(99,102,241,0.15)", paddingTop:12 }}>
-              {/* Tabs — only show when fire is unlocked */}
               {fireUnlocked && (
                 <div style={{ display:"flex", gap:6, marginBottom:10 }}>
                   <button onClick={() => setTab("main")} style={{ flex:1, padding:"5px 0", borderRadius:8, border: activeTab==="main" ? "1px solid rgba(99,102,241,0.5)" : "1px solid rgba(99,102,241,0.15)", background: activeTab==="main" ? "rgba(99,102,241,0.2)" : "transparent", color: activeTab==="main" ? "#a5b4fc" : "#475569", fontSize:11, fontWeight:700, cursor:"pointer", transition:"all 0.2s" }}>
@@ -361,20 +359,19 @@ function MusicPlayer() {
                   </button>
                 </div>
               )}
-              {/* Track list — scrollable, never overflows */}
               <div style={{ maxHeight:138, overflowY:"auto", overflowX:"hidden", paddingRight:2 }}>
                 {(fireUnlocked && activeTab==="fire" ? FIRE_PLAYLIST : PLAYLIST).map((t, localIdx) => {
                   const globalIdx = fireUnlocked && activeTab==="fire" ? PLAYLIST.length + localIdx : localIdx;
                   const isActive = trackIdx === globalIdx;
                   const isFire = fireUnlocked && activeTab==="fire";
                   return (
-                    <div key={globalIdx} onClick={() => goTo(globalIdx)} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 8px", borderRadius:10, cursor:"pointer", background: isActive ? (isFire ? "rgba(245,158,11,0.12)" : "rgba(99,102,241,0.14)") : "transparent", border: isActive ? (isFire ? "1px solid rgba(245,158,11,0.3)" : "1px solid rgba(99,102,241,0.25)") : "1px solid transparent", marginBottom:3, transition:"background 0.15s, border 0.15s" }}>
+                    <div key={globalIdx} onClick={() => goTo(globalIdx)} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 8px", borderRadius:10, cursor:"pointer", background: isActive ? (isFire ? "rgba(245,158,11,0.12)" : "rgba(99,102,241,0.14)") : "transparent", border: isActive ? (isFire ? "1px solid rgba(245,158,11,0.3)" : "1px solid rgba(99,102,241,0.25)") : "1px solid transparent", marginBottom:3, transition:"background 0.15s" }}>
                       <div style={{ width:26, height:26, borderRadius:"50%", flexShrink:0, background: isActive ? (isFire ? "linear-gradient(135deg,#f59e0b,#ef4444)" : "linear-gradient(135deg,#6366f1,#8b5cf6)") : (isFire ? "rgba(245,158,11,0.1)" : "rgba(99,102,241,0.1)"), display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, color: isActive ? "#fff" : "#64748b", fontWeight:700 }}>
                         {isActive && playing ? "♪" : localIdx+1}
                       </div>
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ color: isActive ? "#f1f5f9" : "#94a3b8", fontSize:12, fontWeight: isActive ? 700 : 400, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{t.title}</div>
-                        <div style={{ color:"#475569", fontSize:11, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{t.artist}</div>
+                        <div style={{ color:"#475569", fontSize:11 }}>{t.artist}</div>
                       </div>
                     </div>
                   );
@@ -391,8 +388,7 @@ function MusicPlayer() {
           @keyframes spin  { to{transform:rotate(360deg)} }
           @keyframes subtlePulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.03)} }
           html, body { cursor: default !important; }
-        *, *:focus, *:active { outline: none !important; -webkit-tap-highlight-color: transparent !important; }
-          html, body { cursor: default !important; }
+          *, *:focus, *:active { outline: none !important; -webkit-tap-highlight-color: transparent !important; }
           button, div, input, canvas { -webkit-tap-highlight-color: transparent !important; }
           ::-webkit-scrollbar { width: 4px; }
           ::-webkit-scrollbar-track { background: transparent; }
