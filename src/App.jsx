@@ -11,7 +11,7 @@ const FIRE_PLAYLIST = [
   { title: "Shot Callin",  artist: "NBA YoungBoy", src: "/music/ShotCallin.mp3",   cover: "/covers/ShotCallin.jpg" },
 ];
 
-const SECRET_CODE = "9111"; // Temporary code
+const SECRET_CODE = "6767"; // Temporary code
 
 // ── KEYPAD COMPONENT ──────────────────────────────────────────────────────────
 function Keypad({ onClose, onUnlock }) {
@@ -1122,4 +1122,5 @@ export default function App() {
     </div>
   );
 }
+
 
